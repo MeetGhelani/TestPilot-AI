@@ -1,3 +1,4 @@
+import { chromium } from 'playwright';
 import express from 'express';
 import cors from 'cors';
 import * as fs from 'fs';
@@ -17,6 +18,7 @@ import {
 import type { ScanSummary } from '../src/suggester/testSuggester';
 import type { TestPlan, AuditResult } from '../src/types/index';
 import { runFullAudit } from '../src/auditor/siteAuditor';
+import { deviceProfiles } from '../src/auditor/deviceProfiles';
 
 const app = express();
 const PORT = 3001;
@@ -200,21 +202,43 @@ app.post('/api/suggest', async (req, res) => {
 // ─── Site Audit ──────────────────────────────────────────────────────────────
 
 app.post('/api/audit', async (req, res) => {
-  const { url, authUser, authPass, persona, includeSeo } = req.body;
+  const { url, authUser, authPass, persona, includeSeo, compare } = req.body;
   if (!url) return res.status(400).json({ error: 'url is required' });
   try {
-    const result = await runFullAudit(url, { 
+    const options = { 
       auth: (authUser || authPass) ? { username: authUser, password: authPass } : undefined, 
       persona,
-      includeSeo: includeSeo !== false // Default to true if not provided
-    });
-    
-    const auditData = {
-      ...result,
-      id: Date.now().toString(),
-      type: 'audit' as const,
-      title: `Audit: ${new URL(url).hostname}`
+      includeSeo: includeSeo !== false
     };
+
+    let auditData: any;
+
+    if (compare) {
+      const profiles = ['desktop', 'mobile', 'lowEndMobile'];
+      const comparisons: Record<string, AuditResult> = {};
+      
+      for (const p of profiles) {
+        comparisons[p] = await runFullAudit(url, { ...options, profile: p });
+      }
+
+      auditData = {
+        id: Date.now().toString(),
+        type: 'audit',
+        title: `Comparison Audit: ${new URL(url).hostname}`,
+        comparisons,
+        // Use desktop as the primary result for top-level stats
+        ...comparisons.desktop,
+        totalScore: Math.round(Object.values(comparisons).reduce((acc, r) => acc + r.totalScore, 0) / profiles.length)
+      };
+    } else {
+      const result = await runFullAudit(url, options);
+      auditData = {
+        ...result,
+        id: Date.now().toString(),
+        type: 'audit' as const,
+        title: `Audit: ${new URL(url).hostname}`
+      };
+    }
 
     // Persist to dedicated audits file
     const audits = loadAudits();
@@ -241,6 +265,76 @@ app.delete('/api/audits/:id', (req, res) => {
   const updatedAudits = loadAudits().filter(audit => audit.id !== id);
   saveAudits(updatedAudits);
   res.json({ ok: true });
+});
+
+app.post('/api/audit/highlight', async (req, res) => {
+  const { url, selector, message } = req.body;
+  if (!url || !selector) return res.status(400).json({ error: 'url and selector are required' });
+  
+  try {
+    const browser = await chromium.launch({ headless: false });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    
+    await page.goto(url, { waitUntil: 'networkidle' });
+    
+    await page.evaluate(({ sel, msg }: { sel: string, msg: string }) => {
+      const el = document.querySelector(sel);
+      if (!el) return;
+      
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      // Wait a bit for scroll to finish
+      setTimeout(() => {
+        const rect = el.getBoundingClientRect();
+        const highlight = document.createElement('div');
+        highlight.id = 'ai-test-highlight';
+        highlight.style.position = 'fixed';
+        highlight.style.border = '4px solid #f87171';
+        highlight.style.background = 'rgba(248, 113, 113, 0.2)';
+        highlight.style.zIndex = '1000000';
+        highlight.style.pointerEvents = 'none';
+        highlight.style.boxShadow = '0 0 30px rgba(248, 113, 113, 0.5)';
+        highlight.style.borderRadius = '6px';
+        highlight.style.top = rect.top + 'px';
+        highlight.style.left = rect.left + 'px';
+        highlight.style.width = rect.width + 'px';
+        highlight.style.height = rect.height + 'px';
+        
+        // Add a label
+        const label = document.createElement('div');
+        label.innerText = (msg || 'AUDIT ISSUE ELEMENT').toUpperCase();
+        label.style.position = 'absolute';
+        label.style.top = '-32px';
+        label.style.left = '0';
+        label.style.background = '#f87171';
+        label.style.color = '#fff';
+        label.style.fontSize = '11px';
+        label.style.fontWeight = '900';
+        label.style.padding = '4px 12px';
+        label.style.borderRadius = '4px';
+        label.style.whiteSpace = 'nowrap';
+        label.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+        highlight.appendChild(label);
+        
+        document.body.appendChild(highlight);
+        
+        // Pulsing effect
+        highlight.animate([
+          { opacity: 0.6, transform: 'scale(1)' },
+          { opacity: 1, transform: 'scale(1.02)' },
+          { opacity: 0.6, transform: 'scale(1)' }
+        ], {
+          duration: 1500,
+          iterations: Infinity
+        });
+      }, 500);
+    }, { sel: selector, msg: message });
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
 });
 
 app.get('/api/suggestions', (_req, res) => {

@@ -113,16 +113,24 @@ Deeply audit any site for performance, accessibility, SEO, and more.
 
 1. Enter the site URL
 2. Choose a **Persona** (Standard, Screen Reader, Low Vision, Keyboard Only)
-3. Toggle **SEO Audit** if required
-4. Click **▶ RUN FULL AUDIT**
-5. View detailed results across 7 categories:
+3. Toggle **Compare across devices** to test on Desktop, Mobile, and Low-end Mobile simultaneously
+4. Select individual profiles for CPU and Network throttling simulation:
+   - **Desktop**: Unthrottled
+   - **Mobile**: 4G + 2x CPU Slowdown
+   - **Low-end Mobile**: 3G + 4x CPU Slowdown
+5. Toggle **SEO Audit** if required
+6. Click **▶ RUN FULL AUDIT**
+7. View a side-by-side **Comparison Report** with scores for each device type
+8. Analyze **Visual Performance Charts** (FCP, TBT, DOM Nodes)
+9. Use **Interactive Highlighting** to instantly find failing elements on the live site
+10. View detailed results across 7 categories:
    - **Functional**: Site uptime and auth status
    - **Performance**: FCP, TBT, CLS, and Memory usage
    - **Accessibility**: Missing alt-text, input labels, heading structure
    - **SEO**: Meta tags, canonicals, robots.txt, OG tags
    - **Links**: Scans for 404s and network errors
    - **Console**: Captures JS errors and uncaught exceptions
-   - **UI**: Detects layout shifts and horizontal overflow
+   - **UI**: Detects tap target sizing, text clipping, layout shifts, and fixed overlays
 6. Each category gets a **0-100 Score** and status (Passed/Warning/Failed)
 7. Audit reports are saved to `data/audits.json` for later review
 

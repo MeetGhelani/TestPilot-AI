@@ -1,5 +1,6 @@
 import { chromium, Page, Browser } from 'playwright';
 import type { AuditResult, AuditIssue, AuditCategory } from '../types/index';
+import { deviceProfiles } from './deviceProfiles';
 
 export interface AuditAuth {
   username?: string;
@@ -12,14 +13,44 @@ export interface AuditOptions {
   auth?: AuditAuth;
   persona?: AuditPersona;
   includeSeo?: boolean;
+  profile?: string;
 }
 
 export async function runFullAudit(url: string, options: AuditOptions = {}): Promise<AuditResult> {
-  const { auth, persona = 'all', includeSeo = true } = options;
+  const { auth, persona = 'all', includeSeo = true, profile: profileName = 'desktop' } = options;
+  const profile = deviceProfiles[profileName] || deviceProfiles.desktop;
+
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
+  const context = await browser.newContext({
+    viewport: profile.viewport,
+    userAgent: profile.userAgent
+  });
   const page = await context.newPage();
   const client = await page.context().newCDPSession(page);
+
+  // Apply CPU Throttling
+  if (profile.cpuSlowdown > 1) {
+    await client.send('Emulation.setCPUThrottlingRate', {
+      rate: profile.cpuSlowdown
+    });
+  }
+
+  // Apply Network Throttling
+  if (profile.network === '3g') {
+    await client.send('Network.emulateNetworkConditions', {
+      offline: false,
+      downloadThroughput: (500 * 1024) / 8, // 500kbps
+      uploadThroughput: (500 * 1024) / 8,   // 500kbps
+      latency: 400
+    });
+  } else if (profile.network === '4g') {
+    await client.send('Network.emulateNetworkConditions', {
+      offline: false,
+      downloadThroughput: (4 * 1024 * 1024) / 8, // 4Mbps
+      uploadThroughput: (3 * 1024 * 1024) / 8,   // 3Mbps
+      latency: 50
+    });
+  }
 
   const issues: { [key: string]: AuditIssue[] } = {
     functional: [],
@@ -141,7 +172,11 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
           cls: (window as any).clsValue || 0,
           tbt,
           resourceCount: performance.getEntriesByType('resource').length,
-          pageSize: performance.getEntriesByType('resource').reduce((acc, res: any) => acc + ((res as any).transferSize || 0), 0)
+          pageSize: performance.getEntriesByType('resource').reduce((acc, res: any) => {
+            // transferSize is often 0 for CORS or cache, try encodedBodySize
+            const size = (res.transferSize || res.encodedBodySize || res.decodedBodySize || 0);
+            return acc + size;
+          }, 0)
         };
       });
 
@@ -158,6 +193,7 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
           'Memory Usage': `${(getM('JSHeapUsedSize') / (1024 * 1024)).toFixed(1)} MB`,
           'DOM Nodes': Math.round(getM('Nodes')),
           'Page Size': `${(perfData.pageSize / (1024 * 1024)).toFixed(2)} MB`,
+          'JS Heap Used': getM('JSHeapUsedSize') // raw value for scoring
         };
       } catch (cdpErr) {
         categoryMetrics.performance = {
@@ -168,29 +204,73 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
         };
       }
 
-      // Persona-based Performance weighting
-      if (persona === 'low-vision' && perfData.cls > 0.05) {
-        issues.performance.push({ 
-          type: 'warning', 
-          message: `Layout Shift (CLS) detected: ${perfData.cls.toFixed(3)}`, 
-          severity: 'critical', // Upped to critical for low-vision
-          impact: 'Sudden layout changes are extremely disorienting for users with low vision or cognitive impairments.',
-          recommendation: 'Reserve space for containers and images using fixed dimensions.'
-        });
-      } else if (perfData.cls > 0.1) {
-        issues.performance.push({ 
-          type: 'warning', 
-          message: `High Layout Shift (CLS): ${perfData.cls.toFixed(3)}`, 
-          severity: 'moderate',
-          impact: 'The page content "jumps" as it loads, causing users to misclick.',
-          recommendation: 'Set explicit dimensions for images and containers.'
-        });
+      // --- Performance Benchmarking & Scoring Fix ---
+      const m = categoryMetrics.performance;
+      const fcp = perfData.fcp;
+      const tbt = perfData.tbt;
+      const cls = perfData.cls;
+      const nodes = Number(m['DOM Nodes']) || 0;
+      const mem = Number(m['JS Heap Used']) || 0;
+      const sizeBytes = perfData.pageSize;
+
+      // FCP Check
+      if (fcp > 3000) {
+        issues.performance.push({ type: 'error', message: `FCP is very poor: ${Math.round(fcp)}ms`, severity: 'critical', impact: 'Users perceive the page as slow or broken when it takes this long to show content.', recommendation: 'Optimize server response times and remove render-blocking JS/CSS.' });
+      } else if (fcp > 1800) {
+        issues.performance.push({ type: 'warning', message: `FCP needs improvement: ${Math.round(fcp)}ms`, severity: 'moderate', impact: 'Slow start can lead to user bounce.', recommendation: 'Reduce CSS/JS size and use font-display: swap.' });
+      }
+
+      // TBT Check
+      if (tbt > 600) {
+        issues.performance.push({ type: 'error', message: `High Total Blocking Time: ${Math.round(tbt)}ms`, severity: 'critical', impact: 'The page is unresponsive to user input during loading.', recommendation: 'Split large JS bundles and use Web Workers for heavy tasks.' });
+      } else if (tbt > 200) {
+        issues.performance.push({ type: 'warning', message: `TBT needs improvement: ${Math.round(tbt)}ms`, severity: 'moderate', impact: 'Input delay can frustrate users.', recommendation: 'Optimize long JS tasks.' });
+      }
+
+      // DOM Nodes Check
+      if (nodes > 3000) {
+        issues.performance.push({ type: 'error', message: `Excessive DOM size: ${nodes} nodes`, severity: 'critical', impact: 'A large DOM tree slows down style calculations and interactions.', recommendation: 'Reduce the number of elements; use lazy-loading for off-screen content.' });
+      } else if (nodes > 1500) {
+        issues.performance.push({ type: 'warning', message: `Large DOM size: ${nodes} nodes`, severity: 'moderate', impact: 'Can impact memory usage and rendering speed.', recommendation: 'Avoid deep nesting and flatten your structure.' });
+      }
+
+      // Memory Check (JS Heap)
+      if (mem > 150 * 1024 * 1024) {
+        issues.performance.push({ type: 'error', message: `High Memory Usage: ${(mem / (1024 * 1024)).toFixed(1)} MB`, severity: 'critical', impact: 'May cause browser crashes or lag on lower-end devices.', recommendation: 'Check for memory leaks and optimize large data structures.' });
+      }
+
+      // Page Size Check
+      if (sizeBytes > 5 * 1024 * 1024) {
+        issues.performance.push({ type: 'error', message: `Very Large Page: ${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`, severity: 'critical', impact: 'High data usage and slow load times on mobile.', recommendation: 'Compress images, use modern formats (WebP), and minify assets.' });
+      } else if (sizeBytes > 2 * 1024 * 1024) {
+        issues.performance.push({ type: 'warning', message: `Large Page: ${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`, severity: 'moderate', impact: 'Slower experience for mobile users.', recommendation: 'Optimize resources and use Gzip/Brotli compression.' });
+      }
+
+      // CLS Check
+      if (persona === 'low-vision' && cls > 0.05) {
+        issues.performance.push({ type: 'warning', message: `Layout Shift (CLS) detected: ${cls.toFixed(3)}`, severity: 'critical', impact: 'Disorienting for users with low vision.', recommendation: 'Reserve space for containers.' });
+      } else if (cls > 0.25) {
+        issues.performance.push({ type: 'error', message: `Poor CLS: ${cls.toFixed(3)}`, severity: 'critical', impact: 'Unstable layout causes misclicks.', recommendation: 'Set explicit dimensions for images.' });
+      } else if (cls > 0.1) {
+        issues.performance.push({ type: 'warning', message: `CLS needs improvement: ${cls.toFixed(3)}`, severity: 'moderate', impact: 'Minor layout shifts during load.', recommendation: 'Add width/height to images.', selector: 'img:not([width]):not([height])' });
       }
 
       // 2. Broken Links
       const links = await page.evaluate(() => {
+        const getSelector = (el: Element): string => {
+          if (el.id) return `#${el.id}`;
+          let path = [];
+          let current: Element | null = el;
+          while (current && current !== document.body) {
+            let index = Array.from(current.parentElement?.children || []).indexOf(current) + 1;
+            path.unshift(`${current.tagName.toLowerCase()}:nth-child(${index})`);
+            current = current.parentElement;
+          }
+          return path.join(' > ');
+        };
+
         return Array.from(document.querySelectorAll('a'))
-          .map(a => ({ href: a.href, text: a.innerText.trim() }))
+          .map(a => ({ href: a.href, text: a.innerText.trim(), selector: getSelector(a) }))
           .filter(l => l.href.startsWith('http'));
       });
 
@@ -207,7 +287,8 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
               url: link.href, 
               severity: 'moderate',
               impact: 'Users hit dead ends, hurting trust and SEO ranking.',
-              recommendation: `Check if the URL ${link.href} has moved or been deleted.`
+              recommendation: `Check if the URL ${link.href} has moved or been deleted.`,
+              selector: link.selector
             });
           }
         } catch (err: any) {
@@ -218,7 +299,8 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
             url: link.href, 
             severity: 'low',
             impact: 'The destination server might be down or blocked.',
-            recommendation: 'Verify the link URI is typed correctly.'
+            recommendation: 'Verify the link URI is typed correctly.',
+            selector: link.selector
           });
         }
       }
@@ -230,8 +312,21 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
 
       // 3. Accessibility - Tailored per Persona
       const a11yChecks = await page.evaluate((p) => {
-        const results: { msg: string, impact: string, rec: string, sev: string }[] = [];
+        const results: { msg: string, impact: string, rec: string, sev: string, selector?: string }[] = [];
         const totalElements = document.querySelectorAll('*').length;
+
+        const getSelector = (el: Element): string => {
+          if (el.id) return `#${el.id}`;
+          if (el === document.body) return 'body';
+          
+          let path = [];
+          while (el.parentElement) {
+            let index = Array.from(el.parentElement.children).filter(c => c.tagName === el.tagName).indexOf(el) + 1;
+            path.unshift(`${el.tagName.toLowerCase()}:nth-of-type(${index})`);
+            el = el.parentElement;
+          }
+          return path.join(' > ');
+        };
         
         // 1. Image Check (Critical for Screen Readers)
         document.querySelectorAll('img:not([alt])').forEach(img => {
@@ -239,7 +334,8 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
             msg: `Image missing alt text: ${img.getAttribute('src')?.split('/').pop()}`,
             impact: p === 'screen-reader' ? 'CRITICAL: Screen reader users have no idea what this image represents.' : 'Vision-impaired users using screen readers will have no idea what this image is.',
             rec: 'Add an alt="..." attribute describing the image content.',
-            sev: p === 'screen-reader' ? 'critical' : 'moderate'
+            sev: p === 'screen-reader' ? 'critical' : 'moderate',
+            selector: getSelector(img)
           });
         });
 
@@ -251,7 +347,8 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
                 msg: `Form input missing label: "${(input as any).name || input.className}"`,
                 impact: 'Screen readers and keyboard users cannot easily identify what this input is for.',
                 rec: 'Add a <label> linked via the "for" attribute, or an aria-label.',
-                sev: (p === 'screen-reader' || p === 'keyboard-only') ? 'critical' : 'moderate'
+                sev: (p === 'screen-reader' || p === 'keyboard-only') ? 'critical' : 'moderate',
+                selector: getSelector(input)
               });
            }
         });
@@ -276,13 +373,14 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
           message: check.msg, 
           severity: (check.sev as any) || 'moderate',
           impact: check.impact,
-          recommendation: check.rec
+          recommendation: check.rec,
+          selector: check.selector
         });
       });
 
       categoryMetrics.accessibility = {
         'Elements Checked': a11yChecks.totalChecked,
-        'Accessibility Issues': a11yChecks.issues.length
+        'Accessibility Issues': a11yChecks.issues.length  
       };
 
       // 4. SEO - New Audit Category (Optional)
@@ -407,23 +505,130 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
       }
 
       // 5. UI Checks
-      const uiIssues = await page.evaluate(() => {
-        const results: { msg: string, imp: string, rec: string }[] = [];
+      const uiAudit = await page.evaluate(() => {
+        const results: { msg: string, imp: string, rec: string, sev: string, selector?: string, type: string }[] = [];
         const vw = window.innerWidth;
-        const horizontalOverflow = document.documentElement.scrollWidth > vw;
-        if (horizontalOverflow) {
+        const vh = window.innerHeight;
+
+        const getSelector = (el: HTMLElement): string => {
+          if (el.id) return `#${el.id}`;
+          if (el === document.body) return 'body';
+          let path = '';
+          while (el && el.nodeType === Node.ELEMENT_NODE) {
+            let selector = el.nodeName.toLowerCase();
+            if (el.className) {
+              const classes = Array.from(el.classList).join('.');
+              if (classes) selector += `.${classes}`;
+            }
+            const sibs = Array.from(el.parentNode?.children || []);
+            const index = sibs.indexOf(el) + 1;
+            if (sibs.length > 1) selector += `:nth-child(${index})`;
+            path = selector + (path ? '>' + path : '');
+            el = el.parentNode as HTMLElement;
+          }
+          return path;
+        };
+
+        // 1. Horizontal Overflow
+        if (document.documentElement.scrollWidth > vw + 2) {
           results.push({
+            type: 'layout',
             msg: 'Horizontal scroll detected',
-            imp: 'Users have to scroll sideways, which is poor UX on mobile.',
-            rec: 'Use responsive CSS like max-width: 100% on large elements.'
+            imp: 'Users have to scroll sideways, which is disruptive on mobile.',
+            rec: 'Use responsive CSS like max-width: 100% on large containers.',
+            sev: 'moderate'
           });
         }
-        return results;
+
+        // 2. Small Tap Targets
+        const interactive = document.querySelectorAll('button, a, input[type="submit"], input[type="button"]');
+        interactive.forEach(el => {
+          const rect = el.getBoundingClientRect();
+          if ((rect.width > 0 && rect.width < 44) || (rect.height > 0 && rect.height < 44)) {
+            results.push({
+              type: 'interaction',
+              msg: `Tap target too small (${Math.round(rect.width)}x${Math.round(rect.height)}px)`,
+              imp: 'Difficult for users to tap accurately, especially on mobile devices.',
+              rec: 'Increase size to at least 44x44px or add padding.',
+              sev: 'moderate',
+              selector: getSelector(el as HTMLElement)
+            });
+          }
+        });
+
+        // 3. Overflowing Text/Content
+        const allElements = document.querySelectorAll('p, span, div, h1, h2, h3, h4, h5, h6');
+        allElements.forEach(el => {
+          const style = window.getComputedStyle(el);
+          if (style.overflow === 'hidden' || style.overflowX === 'hidden') return;
+          if (el.scrollWidth > el.clientWidth + 5 && el.clientWidth > 0) {
+            results.push({
+              type: 'layout',
+              msg: 'Text or content overflow detected',
+              imp: 'Content is being cut off or forcing unnecessary scrolls.',
+              rec: 'Use "overflow: hidden", "text-overflow: ellipsis", or responsive sizing.',
+              sev: 'low',
+              selector: getSelector(el as HTMLElement)
+            });
+          }
+        });
+
+        // 4. Images without Dimensions (CLS risk)
+        const images = document.querySelectorAll('img');
+        images.forEach(img => {
+          if ((!img.getAttribute('width') || !img.getAttribute('height')) && !img.style.width && !img.style.height) {
+            results.push({
+              type: 'performance',
+              msg: 'Image missing explicit dimensions',
+              imp: 'Causes Cumulative Layout Shift (CLS) as images load, frustrating users.',
+              rec: 'Add width and height attributes or CSS dimensions.',
+              sev: 'moderate',
+              selector: getSelector(img)
+            });
+          }
+        });
+
+        // 5. Large Fixed Overlays
+        const fixed = document.querySelectorAll('*');
+        fixed.forEach(el => {
+          const style = window.getComputedStyle(el);
+          if (style.position === 'fixed' || style.position === 'sticky') {
+            const rect = el.getBoundingClientRect();
+            if (rect.height > vh * 0.4 && rect.width > vw * 0.4) {
+              results.push({
+                type: 'layout',
+                msg: 'Large fixed/sticky element detected',
+                imp: 'May block significant portions of the viewport on small screens.',
+                rec: 'Ensure fixed elements are reserved for essential navigation only.',
+                sev: 'low',
+                selector: getSelector(el as HTMLElement)
+              });
+            }
+          }
+        });
+
+        return {
+          issues: results,
+          metrics: {
+            'Tap Targets Checked': interactive.length,
+            'Images Scanned': images.length,
+            'Horizontal Overflow': document.documentElement.scrollWidth > vw ? 'Yes' : 'No'
+          }
+        };
       });
 
-      uiIssues.forEach(i => {
-        issues.ui.push({ type: 'warning', message: i.msg, severity: 'low', impact: i.imp, recommendation: i.rec });
+      uiAudit.issues.forEach(i => {
+        issues.ui.push({ 
+          type: 'warning', 
+          message: i.msg, 
+          severity: i.sev as any, 
+          impact: i.imp, 
+          recommendation: i.rec,
+          selector: i.selector
+        });
       });
+
+      categoryMetrics.ui = uiAudit.metrics;
     }
 
   } catch (err: any) {
@@ -478,5 +683,8 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
       .reduce((acc, [_, cat]) => acc + cat.score, 0) / (includeSeo ? 7 : 6)
   );
 
-  return result;
+  return {
+    ...result,
+    profile: profileName
+  };
 }

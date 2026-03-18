@@ -103,6 +103,7 @@ export interface AuditIssue {
   severity: 'critical' | 'moderate' | 'low';
   impact?: string;
   recommendation?: string;
+  selector?: string;
 }
 
 export interface AuditCategory {
@@ -127,4 +128,7 @@ export interface AuditResult {
   };
   totalScore: number;
   reportPath?: string;
+  // Device Emulation Support
+  profile?: string;
+  comparisons?: Record<string, AuditResult>;
 }
