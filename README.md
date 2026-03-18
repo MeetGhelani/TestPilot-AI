@@ -1,112 +1,255 @@
-# AI Test Tool
+# TestPilot AI
 
-AI-powered functional testing for **web**, **mobile**, and **desktop** apps.  
-Describe your test in plain English — Claude generates the steps and runs them automatically.
+AI-powered functional testing tool for **web**, **mobile**, and **desktop** apps.
+No coding required — describe tests in plain English, record interactions, or let the tool suggest what to test.
 
 ---
 
-## Setup
+## Quick Start
 
 ```bash
 # 1. Install dependencies
-npm install
+npm install --legacy-peer-deps
 
-# 2. Install Playwright browsers (web + desktop)
+# 2. Install Playwright browsers
 npx playwright install chromium
 
-# 3. Set your Anthropic API key
-export ANTHROPIC_API_KEY=sk-ant-...
+# 3. Install client dependencies
+cd client
+npm install --legacy-peer-deps
+cd ..
+
+# 4. Start the backend server (Terminal 1)
+npx ts-node server/index.ts
+
+# 5. Start the frontend (Terminal 2)
+cd client
+npm run dev
+
+# 6. Open in browser
+# http://localhost:5173
 ```
 
-For **mobile** testing, also install and start Appium:
+---
+
+## Features
+
+### Run Test
+Describe your test in plain English and run it instantly.
+
+- Enter your site URL
+- Toggle **Basic Auth** if your site requires a login popup (username + password fields appear)
+- Type your test in plain English:
+  ```
+  verify header is visible, scroll to bottom, take screenshot
+  fill #username with 'student', fill #password with 'Password123', click #submit, wait 2000, verify url contains 'logged-in', take screenshot
+  ```
+- Choose platform: **web**, **mobile**, or **desktop**
+- Click **▶ RUN TEST**
+- Results appear inline with per-step pass/fail, screenshots, and timing
+- Download the full **HTML report**
+
+---
+
+### Record & Replay
+Record real browser interactions and replay them automatically.
+
+1. Enter URL + optional Basic Auth credentials
+2. Give the test a name
+3. Click **● START RECORDING** — Chrome opens on your screen
+4. Use the site normally — every click, fill, and navigation is captured live
+5. Watch steps appear in real time in the UI
+6. Click **■ STOP & SAVE** — steps are saved permanently
+
+**Replay:**
+- Click **▶ REPLAY** — Chrome opens and executes all steps with a live overlay
+- Watch the progress bar and step-by-step results in the UI
+- Click **■ STOP** to abort mid-replay
+
+**Edit Steps:**
+- Click **✎ EDIT** on any recording to open the step editor
+- **Drag ⠿** steps to reorder
+- **✎ Edit** any step — change action, selector, value, or description
+- **✕ Delete** unwanted steps
+- **+ Add step** — pick any action (click, fill, assert, wait, screenshot, etc.)
+- **+ Screenshot** / **+ Wait** quick insert buttons
+- Smart **validator** highlights errors and warnings before you replay
+- Click **SAVE & CLOSE** to persist changes
+
+---
+
+### Smart Test Suggester
+Scans your site and suggests exactly what to test — no guessing.
+
+1. Enter a **site name** (optional label) and URL
+2. Toggle Basic Auth if needed
+3. Click **⌕ SCAN & SUGGEST**
+4. Playwright visits up to 5 pages and detects:
+   - Login forms, signup buttons
+   - Navigation links (individual tests per link)
+   - Search bars
+   - Shopping cart, product grids
+   - Contact / inquiry forms
+   - CTA buttons
+   - Hero banners, header, footer
+5. Suggestions appear grouped by category with **HIGH / MED / LOW** priority
+6. Each suggestion shows:
+   - What to test and why it matters
+   - The exact test description pre-written
+   - **▶ RUN TEST** — runs inline, results appear under the card
+   - **✎ EDIT** — customise the test description before running
+   - **COPY** — copy to clipboard
+7. Scans are **saved automatically** — reopen anytime without re-scanning
+8. **Rename** any saved scan with the ✎ pencil icon
+9. **Delete** saved scans with the × button (confirmation popup)
+
+---
+
+### Scan Site
+Auto-detects CSS selectors for common elements on your site.
+
+- Scans header, footer, navigation, logo, login button, search, cart, products, hero
+- Saves selectors to `reports/selectors.json`
+- These selectors are automatically used in all future tests for more accurate targeting
+
+---
+
+### History
+Every test run is saved and viewable anytime.
+
+- Click any run in the list to see full step-by-step results on the right
+- Screenshots shown inline — click to expand fullscreen
+- Download the HTML report for any run
+- **Clear all** with confirmation popup
+
+---
+
+## Basic Auth Support
+
+For password-protected sites (nginx/Apache HTTP auth popup):
+
+All tabs (Run test, Record & replay, Suggest tests, Scan site) have a **"Site requires Basic Auth"** toggle.
+Turn it on → username and password fields appear → credentials sent securely, never in the URL.
+
+---
+
+## Test Description Syntax
+
+Write natural English — separate steps with commas:
+
+| What you write | What it does |
+|---|---|
+| `verify header is visible` | Asserts header element is visible |
+| `fill #email with 'user@test.com'` | Types into the email field |
+| `click sign in button` | Clicks the sign in button |
+| `scroll to bottom` | Scrolls page to bottom |
+| `wait 2000` | Waits 2 seconds |
+| `verify url contains 'dashboard'` | Asserts URL changed |
+| `take screenshot` | Captures full-page screenshot |
+| `verify footer is visible` | Asserts footer is visible |
+
+**Login example:**
+```
+fill #username with 'student', fill #password with 'Password123', click #submit, wait 2000, verify url contains 'logged-in-successfully', take screenshot
+```
+
+---
+
+## Robustness Engine
+
+Every test step uses a smart execution engine:
+
+- **Multi-selector fallback** — tries 5–8 selector strategies per element (id → data-testid → aria-label → name → placeholder → text → xpath)
+- **Auto-healing** — if all selectors fail, scans the DOM and fuzzy-matches the closest element
+- **Retry logic** — every step retried up to 3 times with backoff before failing
+- **Smart waits** — waits for network idle after navigation, not fixed timeouts
+- **Framework detection** — detects React/Vue/Angular and uses native input events for controlled components
+- **Anti-bot** — real Chrome user-agent, `navigator.webdriver` removed, random click delays
+
+---
+
+## Project Structure
+
+```
+ai-test-tool/
+├── server/
+│   └── index.ts              — Express API server
+├── src/
+│   ├── engine/
+│   │   └── smartSelector.ts  — Multi-strategy selector + auto-heal + retry
+│   ├── ai/
+│   │   └── testGenerator.ts  — NL → test steps parser
+│   ├── drivers/
+│   │   ├── webDriver.ts      — Playwright web driver
+│   │   ├── mobileDriver.ts   — Appium mobile driver
+│   │   └── desktopDriver.ts  — Playwright Electron driver
+│   ├── runner/
+│   │   └── testRunner.ts     — Orchestrator + HTML reporter
+│   ├── recorder/
+│   │   └── testRecorder.ts   — Live browser recorder
+│   ├── scanner/
+│   │   └── siteScanner.ts    — CSS selector auto-detector
+│   ├── suggester/
+│   │   └── testSuggester.ts  — Smart test suggestion engine
+│   └── types/
+│       └── index.ts          — Shared TypeScript types
+├── client/                   — React + Vite frontend
+│   └── src/
+│       ├── App.tsx
+│       └── components/
+│           ├── TestForm.tsx
+│           ├── ResultPanel.tsx
+│           ├── HistoryPanel.tsx
+│           ├── RecordReplay.tsx
+│           ├── StepEditor.tsx
+│           ├── SmartSuggester.tsx
+│           ├── SiteScanner.tsx
+│           └── ScreenshotViewer.tsx
+├── reports/                  — Auto-generated reports + screenshots
+└── package.json
+```
+
+---
+
+## Output Files
+
+| File | Contents |
+|---|---|
+| `reports/history.json` | All test run results |
+| `reports/recordings.json` | Saved recordings with steps |
+| `reports/suggestions.json` | Saved smart test suggestions |
+| `reports/selectors.json` | Auto-detected site selectors |
+| `reports/screenshots/` | Per-step screenshots |
+| `reports/report-*.html` | Downloadable HTML reports |
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `APPIUM_HOST` | `localhost` | Appium server host (mobile) |
+| `APPIUM_PORT` | `4723` | Appium server port (mobile) |
+| `APPIUM_PLATFORM` | `Android` | `Android` or `iOS` |
+
+---
+
+## Ports
+
+| Service | Port |
+|---|---|
+| Backend API | `3001` |
+| Frontend (Vite) | `5173` |
+
+---
+
+## Mobile Testing Setup
+
+Mobile requires Appium (web testing works out of the box):
+
 ```bash
 npm install -g appium
 appium driver install uiautomator2   # Android
 appium driver install xcuitest       # iOS
-appium                               # starts server on port 4723
-```
-
----
-
-## Usage
-
-```bash
-# Web
-npx ts-node src/cli.ts \
-  --platform web \
-  --url https://yourapp.com \
-  --test "Log in with valid credentials and verify the dashboard loads"
-
-# Mobile (Android)
-npx ts-node src/cli.ts \
-  --platform mobile \
-  --url /path/to/app.apk \
-  --test "Open the app and verify the welcome screen is visible"
-
-# Desktop (Electron)
-npx ts-node src/cli.ts \
-  --platform desktop \
-  --url /Applications/MyApp.app/Contents/MacOS/MyApp \
-  --test "Open the preferences window and change the theme to dark"
-
-# Run headlessly (default for web)
-npx ts-node src/cli.ts --platform web --url https://example.com \
-  --test "Check the page title" --headless
-
-# Show browser UI
-npx ts-node src/cli.ts --platform web --url https://example.com \
-  --test "Check the page title" --no-headless
-```
-
----
-
-## Output
-
-- **Terminal** — coloured pass/fail summary with per-step timing
-- **HTML report** — saved to `./reports/report-<timestamp>.html`
-- **Screenshots** — saved to `./reports/screenshots/` on failure (and when steps request them)
-
----
-
-## Project structure
-
-```
-src/
-├── ai/
-│   └── testGenerator.ts    # Claude API → test steps
-├── drivers/
-│   ├── webDriver.ts        # Playwright (Chrome)
-│   ├── mobileDriver.ts     # WebdriverIO + Appium
-│   └── desktopDriver.ts    # Playwright Electron
-├── runner/
-│   └── testRunner.ts       # Orchestrator + HTML reporter
-├── types/
-│   └── index.ts            # Shared types
-└── cli.ts                  # Entry point
-```
-
----
-
-## Environment variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | — | Required. Your Claude API key. |
-| `APPIUM_HOST` | `localhost` | Appium server host (mobile) |
-| `APPIUM_PORT` | `4723` | Appium server port (mobile) |
-| `APPIUM_PLATFORM` | `Android` | `Android` or `iOS` (mobile) |
-
----
-
-## CI integration (GitHub Actions example)
-
-```yaml
-- name: Run AI functional tests
-  env:
-    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-  run: |
-    npx ts-node src/cli.ts \
-      --platform web \
-      --url ${{ env.STAGING_URL }} \
-      --test "Complete the checkout flow and verify the confirmation page"
+appium                               # starts on port 4723
 ```
