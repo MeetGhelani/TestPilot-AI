@@ -1,35 +1,5 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-
-# Testing and Reports
-reports/
-data/reports/
-data/history.json
-data/audits.json
-data/suggestions.json
-
-# Production
-dist/
-build/
-
-# IDEs and Tools
-.vscode/
-.idea/
-*.swp
-*.swo
-.DS_Store
-
-# Environment
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-server.log
+node_modules/ 
+dist/ 
+reports/ 
+client/node_modules/ 
+client/dist/ 
