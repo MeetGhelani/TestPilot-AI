@@ -20,10 +20,29 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
   const { auth, persona = 'all', includeSeo = true, profile: profileName = 'desktop' } = options;
   const profile = deviceProfiles[profileName] || deviceProfiles.desktop;
 
+  let cleanUrl = url;
+  let username = auth?.username;
+  let password = auth?.password;
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.username) {
+      if (!username) username = decodeURIComponent(parsed.username);
+      if (!password) password = decodeURIComponent(parsed.password);
+      parsed.username = ''; parsed.password = '';
+      cleanUrl = parsed.toString();
+    }
+  } catch {}
+
+  const httpCredentials = (username || password)
+    ? { username: username ?? '', password: password ?? '' }
+    : undefined;
+
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: profile.viewport,
-    userAgent: profile.userAgent
+    userAgent: profile.userAgent,
+    httpCredentials
   });
   const page = await context.newPage();
   const client = await page.context().newCDPSession(page);
@@ -73,6 +92,19 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
   };
 
   let siteAccessible = false;
+  const apiFailures: { url: string; status: number }[] = [];
+
+  // Monitor API failures
+  page.on('response', response => {
+    const rUrl = response.url();
+    const status = response.status();
+    const isApi = rUrl.includes('/api/') || rUrl.includes('/graphql') || rUrl.includes('v1/') || rUrl.includes('v2/');
+    const isTracking = rUrl.includes('analytics') || rUrl.includes('google-analytics') || rUrl.includes('segment') || rUrl.includes('facebook.com') || rUrl.includes('hotjar');
+
+    if (isApi && !isTracking && status >= 400) {
+      apiFailures.push({ url: rUrl, status });
+    }
+  });
 
   // Monitor Console
   page.on('console', msg => {
@@ -111,24 +143,24 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
     });
 
     try {
-      const response = await page.goto(url, { waitUntil: 'load', timeout: 60000 });
-      
+      const response = await page.goto(cleanUrl, { waitUntil: 'load', timeout: 60000 });
+
       // Handle Authentication if requested
       if (auth?.username || auth?.password) {
         try {
           // Look for login fields
           const userFields = await page.$$('input[type="text"], input[type="email"], input[name*="user"], input[name*="login"]');
           const passFields = await page.$$('input[type="password"]');
-          
+
           if (userFields.length > 0 && passFields.length > 0) {
             if (auth.username) await userFields[0].fill(auth.username);
             if (auth.password) await passFields[0].fill(auth.password);
-            
+
             // Try to find a submit button
             const submitBtn = await page.$('button[type="submit"], input[type="submit"], button:has-text("Log in"), button:has-text("Sign in")');
             if (submitBtn) {
               await submitBtn.click();
-              await page.waitForNavigation({ waitUntil: 'load', timeout: 30000 }).catch(() => {});
+              await page.waitForNavigation({ waitUntil: 'load', timeout: 30000 }).catch(() => { });
             }
           }
         } catch (authErr) {
@@ -142,10 +174,78 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
         }
       }
 
-      if (response && response.status() < 400) {
+      if (response) {
         siteAccessible = true;
+        
+        if (response.status() >= 400) {
+          issues.functional.push({
+            type: response.status() === 404 ? 'warning' : 'error',
+            message: `Site returned HTTP status ${response.status()}`,
+            severity: response.status() === 404 ? 'moderate' : 'high',
+            confidence: 'high',
+            impact: 'The server indicated an error, although the tool will attempt to audit any rendered content.',
+            recommendation: 'Verify the URL routing and server configuration.',
+            deduction: 15
+          });
+        }
+
+        // 1. Blank Page Detection
+        const pageContent = await page.evaluate(() => {
+          const text = document.body.innerText || '';
+          const hasVisibleElements = !!document.querySelector('img, button, a, svg, canvas');
+          return { length: text.trim().length, hasVisibleElements };
+        });
+
+        if (pageContent.length < 50) {
+          const isExtreme = pageContent.length < 5 && !pageContent.hasVisibleElements;
+          issues.functional.push({
+            type: 'error',
+            message: "Page may not be rendered properly",
+            severity: isExtreme ? 'critical' : 'high',
+            confidence: 'medium',
+            impact: 'Users see a nearly blank page, which usually indicates a JS crash or failed data fetch.',
+            recommendation: 'Check for client-side errors or failed critical API requests.',
+            deduction: isExtreme ? 20 : 10
+          });
+        }
+
+        // 2. Redirect / Domain Validation
+        const initialDomain = new URL(url).hostname;
+        const finalUrl = page.url();
+        const finalDomain = new URL(finalUrl).hostname;
+        const errorPaths = ['/404', '/error', '/maintenance', '/oops', '/broken'];
+        const isErrorRedirect = errorPaths.some(p => finalUrl.toLowerCase().includes(p));
+
+        if (isErrorRedirect || (initialDomain !== finalDomain && !finalDomain.includes(initialDomain))) {
+          issues.functional.push({
+            type: 'error',
+            message: isErrorRedirect ? "Unexpected redirect to error page" : "Unexpected domain change detected",
+            url: finalUrl,
+            severity: 'high',
+            confidence: 'high',
+            impact: 'Users are redirected away from the intended content, causing confusion and drop-offs.',
+            recommendation: isErrorRedirect ? 'Check server-side routing and URL patterns.' : 'Verify if cross-domain redirects are intentional.',
+            deduction: isErrorRedirect ? 25 : 15
+          });
+        }
+
+        // 3. API Failures
+        if (apiFailures.length > 0) {
+          const deductionPerFailure = 8; // Avg of 5-10
+          const totalApiDeduction = Math.min(30, apiFailures.length * deductionPerFailure);
+          issues.functional.push({
+            type: 'error',
+            message: `${apiFailures.length} critical API request${apiFailures.length > 1 ? 's' : ''} failed`,
+            severity: 'high',
+            confidence: 'high',
+            impact: 'Missing data or broken features due to failed backend communication.',
+            recommendation: 'Inspect network tab and ensure backend services are healthy.',
+            deduction: totalApiDeduction
+          });
+        }
+
       } else {
-        throw new Error(`Site returned status ${response?.status() || 'unknown'}`);
+        throw new Error('No response received from server.');
       }
     } catch (err: any) {
       issues.functional.push({
@@ -165,7 +265,7 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
         const fcp = performance.getEntriesByName('first-contentful-paint')[0]?.startTime || 0;
         const longTasks = performance.getEntriesByType('longtask') as any[];
         const tbt = longTasks.reduce((acc, task) => acc + (task.duration - 50), 0);
-        
+
         return {
           loadTime: timing.loadEventEnd - timing.startTime,
           fcp,
@@ -278,25 +378,50 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
       let brokenCount = 0;
       for (const link of uniqueLinks) {
         try {
-          const response = await page.request.get(link.href, { timeout: 7000 });
-          if (response.status() >= 400) {
+          const response = await page.request.get(link.href, {
+            timeout: 7000,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.9'
+            }
+          });
+
+          const status = response.status();
+
+          if (status >= 400) {
             brokenCount++;
-            issues.links.push({ 
-              type: 'error', 
-              message: `Broken Link: Status ${response.status()} for "${link.text || 'Untitled Link'}"`, 
-              url: link.href, 
-              severity: 'moderate',
-              impact: 'Users hit dead ends, hurting trust and SEO ranking.',
-              recommendation: `Check if the URL ${link.href} has moved or been deleted.`,
-              selector: link.selector
-            });
+
+            if (status === 403) {
+              // Restricted Access
+              issues.links.push({
+                type: 'warning',
+                message: `Restricted Access: Status 403 for "${link.text || 'Untitled Link'}"`,
+                url: link.href,
+                severity: 'low',
+                impact: 'This link blocks automated requests (bots) but may still work for real users in a browser.',
+                recommendation: 'Verify this link manually. Some sites like Udemy block automated validation.',
+                selector: link.selector
+              });
+            } else {
+              // Truly Broken
+              issues.links.push({
+                type: 'error',
+                message: `Broken Link: Status ${status} for "${link.text || 'Untitled Link'}"`,
+                url: link.href,
+                severity: status === 404 ? 'moderate' : 'low',
+                impact: status === 404 ? 'Users hit dead ends, hurting trust and SEO ranking.' : 'The server returned an error, which may be temporary.',
+                recommendation: status === 404 ? 'Check if the URL has moved or been deleted.' : 'Verify if the destination server is experiencing issues.',
+                selector: link.selector
+              });
+            }
           }
         } catch (err: any) {
           brokenCount++;
-          issues.links.push({ 
-            type: 'error', 
-            message: `Network Error: Could not reach "${link.text || 'Link'}"`, 
-            url: link.href, 
+          issues.links.push({
+            type: 'error',
+            message: `Network Error: Could not reach "${link.text || 'Link'}"`,
+            url: link.href,
             severity: 'low',
             impact: 'The destination server might be down or blocked.',
             recommendation: 'Verify the link URI is typed correctly.',
@@ -318,7 +443,7 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
         const getSelector = (el: Element): string => {
           if (el.id) return `#${el.id}`;
           if (el === document.body) return 'body';
-          
+
           let path = [];
           while (el.parentElement) {
             let index = Array.from(el.parentElement.children).filter(c => c.tagName === el.tagName).indexOf(el) + 1;
@@ -327,7 +452,7 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
           }
           return path.join(' > ');
         };
-        
+
         // 1. Image Check (Critical for Screen Readers)
         document.querySelectorAll('img:not([alt])').forEach(img => {
           results.push({
@@ -341,16 +466,16 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
 
         // 2. Input Labels (Critical for Screen Readers & Keyboard users)
         document.querySelectorAll('input:not([aria-label]):not([aria-labelledby])').forEach(input => {
-           const id = input.id;
-           if (!id || !document.querySelector(`label[for="${id}"]`)) {
-              results.push({
-                msg: `Form input missing label: "${(input as any).name || input.className}"`,
-                impact: 'Screen readers and keyboard users cannot easily identify what this input is for.',
-                rec: 'Add a <label> linked via the "for" attribute, or an aria-label.',
-                sev: (p === 'screen-reader' || p === 'keyboard-only') ? 'critical' : 'moderate',
-                selector: getSelector(input)
-              });
-           }
+          const id = input.id;
+          if (!id || !document.querySelector(`label[for="${id}"]`)) {
+            results.push({
+              msg: `Form input missing label: "${(input as any).name || input.className}"`,
+              impact: 'Screen readers and keyboard users cannot easily identify what this input is for.',
+              rec: 'Add a <label> linked via the "for" attribute, or an aria-label.',
+              sev: (p === 'screen-reader' || p === 'keyboard-only') ? 'critical' : 'moderate',
+              selector: getSelector(input)
+            });
+          }
         });
 
         // 3. Headings (Important for Screen Reader navigation)
@@ -368,9 +493,9 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
       }, persona);
 
       a11yChecks.issues.forEach(check => {
-        issues.accessibility.push({ 
-          type: 'error', 
-          message: check.msg, 
+        issues.accessibility.push({
+          type: 'error',
+          message: check.msg,
           severity: (check.sev as any) || 'moderate',
           impact: check.impact,
           recommendation: check.rec,
@@ -380,7 +505,7 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
 
       categoryMetrics.accessibility = {
         'Elements Checked': a11yChecks.totalChecked,
-        'Accessibility Issues': a11yChecks.issues.length  
+        'Accessibility Issues': a11yChecks.issues.length
       };
 
       // 4. SEO - New Audit Category (Optional)
@@ -481,7 +606,7 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
           const baseUrl = new URL(url).origin;
           const robotsRes = await page.request.get(`${baseUrl}/robots.txt`).catch(() => null);
           const hasRobots = robotsRes && robotsRes.status() === 200;
-          
+
           categoryMetrics.seo = {
             'Title Length': seoData.title.length,
             'H1 Count': seoData.h1Count,
@@ -505,7 +630,7 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
       }
 
       // 5. UI Checks
-      const uiAudit = await page.evaluate(() => {
+      const uiAudit = await page.evaluate(({ isMobile }) => {
         const results: { msg: string, imp: string, rec: string, sev: string, selector?: string, type: string }[] = [];
         const vw = window.innerWidth;
         const vh = window.innerHeight;
@@ -529,6 +654,14 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
           return path;
         };
 
+        const interactive = document.querySelectorAll(`
+          button, 
+          [role="button"], 
+          input[type="button"], 
+          input[type="submit"], 
+          a[href]
+        `);
+
         // 1. Horizontal Overflow
         if (document.documentElement.scrollWidth > vw + 2) {
           results.push({
@@ -540,89 +673,62 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
           });
         }
 
-        // 2. Small Tap Targets
-        const interactive = document.querySelectorAll('button, a, input[type="submit"], input[type="button"]');
-        interactive.forEach(el => {
-          const rect = el.getBoundingClientRect();
-          if ((rect.width > 0 && rect.width < 44) || (rect.height > 0 && rect.height < 44)) {
-            results.push({
-              type: 'interaction',
-              msg: `Tap target too small (${Math.round(rect.width)}x${Math.round(rect.height)}px)`,
-              imp: 'Difficult for users to tap accurately, especially on mobile devices.',
-              rec: 'Increase size to at least 44x44px or add padding.',
-              sev: 'moderate',
-              selector: getSelector(el as HTMLElement)
-            });
-          }
-        });
-
-        // 3. Overflowing Text/Content
-        const allElements = document.querySelectorAll('p, span, div, h1, h2, h3, h4, h5, h6');
-        allElements.forEach(el => {
-          const style = window.getComputedStyle(el);
-          if (style.overflow === 'hidden' || style.overflowX === 'hidden') return;
-          if (el.scrollWidth > el.clientWidth + 5 && el.clientWidth > 0) {
-            results.push({
-              type: 'layout',
-              msg: 'Text or content overflow detected',
-              imp: 'Content is being cut off or forcing unnecessary scrolls.',
-              rec: 'Use "overflow: hidden", "text-overflow: ellipsis", or responsive sizing.',
-              sev: 'low',
-              selector: getSelector(el as HTMLElement)
-            });
-          }
-        });
-
-        // 4. Images without Dimensions (CLS risk)
-        const images = document.querySelectorAll('img');
-        images.forEach(img => {
-          if ((!img.getAttribute('width') || !img.getAttribute('height')) && !img.style.width && !img.style.height) {
-            results.push({
-              type: 'performance',
-              msg: 'Image missing explicit dimensions',
-              imp: 'Causes Cumulative Layout Shift (CLS) as images load, frustrating users.',
-              rec: 'Add width and height attributes or CSS dimensions.',
-              sev: 'moderate',
-              selector: getSelector(img)
-            });
-          }
-        });
-
-        // 5. Large Fixed Overlays
-        const fixed = document.querySelectorAll('*');
-        fixed.forEach(el => {
-          const style = window.getComputedStyle(el);
-          if (style.position === 'fixed' || style.position === 'sticky') {
+        // 2. Small Tap Targets (Refined Logic - Mobile Only)
+        if (isMobile) {
+          interactive.forEach(el => {
             const rect = el.getBoundingClientRect();
-            if (rect.height > vh * 0.4 && rect.width > vw * 0.4) {
+            if (rect.width === 0 || rect.height === 0) return;
+
+            // Process links (ignore inline text links)
+            if (el.tagName === 'A') {
+              const style = window.getComputedStyle(el);
+              const isInline = style.display === 'inline';
+              const hasParentText = el.closest('p, span, div');
+
+              // Check if it's a "Clickable UI" (nav, header, footer, or styled as btn)
+              const isClickableUI =
+                style.display === 'inline-block' ||
+                style.display === 'block' ||
+                style.display === 'flex' ||
+                style.display === 'grid' ||
+                el.closest('nav') ||
+                el.closest('header') ||
+                el.closest('footer') ||
+                el.className.toLowerCase().includes('btn') ||
+                el.className.toLowerCase().includes('cta');
+
+              // Skip normal inline paragraph links
+              if (isInline && hasParentText && !isClickableUI) return;
+            }
+
+            if (rect.width < 44 || rect.height < 44) {
               results.push({
-                type: 'layout',
-                msg: 'Large fixed/sticky element detected',
-                imp: 'May block significant portions of the viewport on small screens.',
-                rec: 'Ensure fixed elements are reserved for essential navigation only.',
-                sev: 'low',
+                type: 'interaction',
+                msg: `Tap target may be small for touch devices ⚠️ (${Math.round(rect.width)}x${Math.round(rect.height)}px)`,
+                imp: 'Difficult for users to tap accurately, especially on mobile devices.',
+                rec: 'Increase size to at least 44x44px or add padding.',
+                sev: 'moderate',
                 selector: getSelector(el as HTMLElement)
               });
             }
-          }
-        });
+          });
+        }
 
         return {
           issues: results,
           metrics: {
             'Tap Targets Checked': interactive.length,
-            'Images Scanned': images.length,
             'Horizontal Overflow': document.documentElement.scrollWidth > vw ? 'Yes' : 'No'
           }
         };
-      });
+      }, { isMobile: profile.isMobile });
 
       uiAudit.issues.forEach(i => {
-        issues.ui.push({ 
-          type: 'warning', 
-          message: i.msg, 
-          severity: i.sev as any, 
-          impact: i.imp, 
+        issues.ui.push({
+          type: 'warning',
+          message: i.msg,
+          severity: i.sev as any,
+          impact: i.imp,
           recommendation: i.rec,
           selector: i.selector
         });
@@ -632,9 +738,9 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
     }
 
   } catch (err: any) {
-    issues.functional.push({ 
-      type: 'error', 
-      message: `Critical Audit Error: ${err.message}`, 
+    issues.functional.push({
+      type: 'error',
+      message: `Critical Audit Error: ${err.message}`,
       severity: 'critical',
       impact: 'The auditor encountered a fatal error while scanning.',
       recommendation: 'Please try again or contact support if this persists.'
@@ -645,14 +751,27 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
 
   const calculateScore = (categoryIssues: AuditIssue[], categoryName: string) => {
     if (!siteAccessible && categoryName !== 'functional') return 0;
-    
+
     let score = 100;
+
     categoryIssues.forEach(i => {
-      if (i.severity === 'critical') score -= 30;
-      else if (i.severity === 'moderate') score -= 15;
-      else score -= 5;
+      let deduction = 0;
+
+      if (categoryName === 'functional') {
+        const baseDeduction = i.deduction || (i.severity === 'critical' ? 30 : i.severity === 'high' ? 20 : i.severity === 'moderate' ? 10 : 5);
+        const multiplier = i.confidence === 'high' ? 1 : i.confidence === 'medium' ? 0.7 : i.confidence === 'low' ? 0.4 : 1;
+        deduction = baseDeduction * multiplier;
+      } else {
+        if (i.severity === 'critical') deduction = 30;
+        else if (i.severity === 'high') deduction = 20;
+        else if (i.severity === 'moderate') deduction = 15;
+        else deduction = 5;
+      }
+
+      score -= deduction;
     });
-    return Math.max(0, score);
+
+    return Math.max(0, Math.min(100, Math.round(score)));
   };
 
   const getStatus = (score: number) => {

@@ -99,6 +99,23 @@ export class WebDriver implements Driver {
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
       const screenshotPath = await this._captureErrorScreenshot(step.action);
+      
+      if (errMsg.includes('Automation blocked by CAPTCHA')) {
+        if (!this.headless) {
+          await this.updateOverlay(`⚠️ ${step.description} (Blocked)`, 'warning');
+          await this.page.waitForTimeout(600);
+        }
+        console.warn(`[WebDriver] Step BLOCKED by CAPTCHA: ${step.description}`);
+        return {
+          step,
+          status: 'blocked',
+          durationMs: Date.now() - start,
+          reason: 'captcha_detected',
+          message: 'Automation blocked by CAPTCHA',
+          screenshotPath
+        };
+      }
+
       if (!this.headless) {
         await this.updateOverlay(`✗ ${step.description}`, 'failed');
         await this.page.waitForTimeout(600);
@@ -272,12 +289,12 @@ export class WebDriver implements Driver {
     } catch {}
   }
 
-  private async updateOverlay(message: string, status: 'running' | 'passed' | 'failed'): Promise<void> {
+  private async updateOverlay(message: string, status: 'running' | 'passed' | 'failed' | 'warning'): Promise<void> {
     try {
       await this.page!.evaluate(({ msg, st }: { msg: string; st: string }) => {
         const el = document.getElementById('__tp_msg');
         if (el) el.textContent = msg;
-        const colors: Record<string, string> = { running: '#c8f069', passed: '#4ade80', failed: '#f87171' };
+        const colors: Record<string, string> = { running: '#c8f069', passed: '#4ade80', failed: '#f87171', warning: '#fbbf24' };
         const overlay = document.getElementById('__tp_overlay');
         const dot = document.getElementById('__tp_dot');
         if (overlay) overlay.style.color = colors[st] ?? '#c8f069';
@@ -311,7 +328,7 @@ export class WebDriver implements Driver {
           // Check for CAPTCHA iframes directly via URL
           if (frameUrl.includes('google.com/recaptcha') || frameUrl.includes('hcaptcha.com') || frameUrl.includes('geetest.com')) {
             console.warn(`[WebDriver] CAPTCHA IFRAME DETECTED: ${frameUrl}`);
-            throw new Error(`Critical blocker detected: CAPTCHA/Bot protection iframe found during ${context}.`);
+            throw new Error(`Automation blocked by CAPTCHA`);
           }
 
           // Get text content of the frame with a SHORT timeout (1s) to avoid 30s hangs
@@ -323,7 +340,7 @@ export class WebDriver implements Driver {
               // For CAPTCHA/Robot checks, fail immediately if found anywhere
               if (indicator.includes('captcha') || indicator.includes('human') || indicator.includes('robot') || indicator.includes('bot')) {
                 console.warn(`[WebDriver] BLOCKER DETECTED in frame text: "${indicator}"`);
-                throw new Error(`Critical blocker detected: "${indicator}" during ${context}. Please check the page for CAPTCHAs or bot protection.`);
+                throw new Error(`Automation blocked by CAPTCHA`);
               }
 
               // For generic errors, check if they are actually visible

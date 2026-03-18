@@ -5,11 +5,16 @@ import ScreenshotViewer from './ScreenshotViewer'
 interface Props {
   history: HistoryItem[]
   onClear: () => void
+  onDeleteItem: (id: string) => void
+  onDeleteItems: (ids: string[]) => void
 }
 
-export default function HistoryPanel({ history, onClear }: Props) {
+export default function HistoryPanel({ history, onClear, onDeleteItem, onDeleteItems }: Props) {
   const [selected, setSelected] = useState<HistoryItem | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [selectedForDeletion, setSelectedForDeletion] = useState<Set<string>>(new Set())
 
   if (history.length === 0) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 12, opacity: 0.4 }}>
@@ -27,11 +32,39 @@ export default function HistoryPanel({ history, onClear }: Props) {
       <div style={{ width: 380, flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 400 }}>History</h2>
-          <button
-            onClick={() => setConfirmClear(true)}
-            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--text3)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1 }}>
-            CLEAR ALL
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {isEditing ? (
+              <>
+                <button
+                  onClick={() => {
+                    setIsEditing(false);
+                    setSelectedForDeletion(new Set());
+                  }}
+                  style={{ background: 'none', border: '1px solid var(--text2)', borderRadius: 6, padding: '4px 12px', color: 'var(--text2)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1 }}>
+                  CANCEL
+                </button>
+                <button
+                  onClick={() => setConfirmBulkDelete(true)}
+                  disabled={selectedForDeletion.size === 0}
+                  style={{ background: selectedForDeletion.size > 0 ? '#f8717122' : 'none', border: `1px solid ${selectedForDeletion.size > 0 ? '#f8717144' : 'var(--border)'}`, borderRadius: 6, padding: '4px 12px', color: selectedForDeletion.size > 0 ? 'var(--fail)' : 'var(--text3)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: selectedForDeletion.size === 0 ? 'not-allowed' : 'pointer', letterSpacing: 1, opacity: selectedForDeletion.size === 0 ? 0.5 : 1 }}>
+                  DELETE ({selectedForDeletion.size})
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--accent)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1 }}>
+                  EDIT
+                </button>
+                <button
+                  onClick={() => setConfirmClear(true)}
+                  style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--fail)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1 }}>
+                  CLEAR ALL
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -40,17 +73,45 @@ export default function HistoryPanel({ history, onClear }: Props) {
             const audit = isAudit(r)
             const statusColor = r.status === 'passed' ? 'var(--pass)' : 'var(--fail)'
             const title = audit ? r.title : (r as TestResult).plan.naturalLanguageInput
+            const itemId = r.id || (audit ? r.timestamp : (r as TestResult).startedAt);
+            const isChecked = itemId ? selectedForDeletion.has(itemId) : false;
 
             return (
               <div
                 key={i}
-                onClick={() => setSelected(isSelected ? null : r)}
-                style={{ background: 'var(--surface)', border: `1px solid ${isSelected ? 'var(--border2)' : 'var(--border)'}`, borderRadius: 10, padding: '12px 14px', cursor: 'pointer', transition: 'border-color 0.15s', borderLeft: isSelected ? `3px solid var(--accent)` : `1px solid var(--border)` }}
-                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.borderColor = 'var(--border2)' }}
-                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.borderColor = 'var(--border)' }}
+                onClick={() => {
+                  if (isEditing) {
+                    if (itemId) {
+                      const newSet = new Set(selectedForDeletion);
+                      if (newSet.has(itemId)) newSet.delete(itemId); else newSet.add(itemId);
+                      setSelectedForDeletion(newSet);
+                    }
+                  } else {
+                    setSelected(isSelected ? null : r);
+                  }
+                }}
+                style={{ background: 'var(--surface)', border: `1px solid ${isEditing ? (isChecked ? 'var(--fail)' : 'var(--border)') : (isSelected ? 'var(--border2)' : 'var(--border)')}`, borderRadius: 10, padding: '12px 14px', cursor: 'pointer', transition: 'all 0.15s', borderLeft: isEditing ? (isChecked ? `3px solid var(--fail)` : `1px solid var(--border)`) : (isSelected ? `5px solid var(--accent)` : `1px solid var(--border)`) }}
+                onMouseEnter={e => { if ((!isSelected || isEditing) && (!isEditing || !isChecked)) e.currentTarget.style.borderColor = 'var(--border2)' }}
+                onMouseLeave={e => { if ((!isSelected || isEditing) && (!isEditing || !isChecked)) e.currentTarget.style.borderColor = 'var(--border)' }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                  {isEditing && (
+                    <div style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 4,
+                      border: `2px solid ${isChecked ? 'var(--fail)' : 'var(--border2)'}`,
+                      background: isChecked ? 'var(--fail)' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                      marginTop: 2
+                    }}>
+                      {isChecked && <span style={{ color: '#000', fontSize: 12, fontWeight: 800 }}>✓</span>}
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 8 }}>
                       {audit && <span style={{ fontSize: 10, background: '#333', color: 'var(--accent)', padding: '1px 4px', borderRadius: 4, fontFamily: 'var(--font-mono)' }}>AUDIT</span>}
                       {title.slice(0, 50)}{title.length > 50 ? '…' : ''}
@@ -61,8 +122,10 @@ export default function HistoryPanel({ history, onClear }: Props) {
                       <span>{new Date(audit ? r.timestamp : (r as TestResult).startedAt).toLocaleString()}</span>
                     </div>
                   </div>
-                  <div style={{ padding: '3px 10px', borderRadius: 20, background: r.status === 'passed' ? '#4ade8022' : '#f8717122', color: statusColor, fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 500, marginLeft: 10, flexShrink: 0 }}>
-                    {r.status.toUpperCase()}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                    <div style={{ padding: '3px 10px', borderRadius: 20, background: r.status === 'passed' ? '#4ade8022' : '#f8717122', color: statusColor, fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 500, marginLeft: 10, flexShrink: 0 }}>
+                      {r.status.toUpperCase()}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -248,6 +311,42 @@ export default function HistoryPanel({ history, onClear }: Props) {
                 onClick={() => { onClear(); setConfirmClear(false); setSelected(null) }}
                 style={{ flex: 1, padding: '10px 0', background: '#f8717122', border: '1px solid #f8717144', borderRadius: 8, color: 'var(--fail)', fontFamily: 'var(--font-mono)', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}>
                 DELETE ALL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirm bulk delete popup ── */}
+      {confirmBulkDelete && (
+        <div
+          onClick={() => setConfirmBulkDelete(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 14, padding: '28px 32px', width: 360, display: 'flex', flexDirection: 'column', gap: 16 }}
+          >
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20 }}>Delete selected?</div>
+            <p style={{ color: 'var(--text2)', fontSize: 13, lineHeight: 1.6 }}>
+              This will permanently delete {selectedForDeletion.size} selected entries. This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setConfirmBulkDelete(false)}
+                style={{ flex: 1, padding: '10px 0', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 12, cursor: 'pointer' }}>
+                CANCEL
+              </button>
+              <button
+                onClick={() => {
+                  onDeleteItems(Array.from(selectedForDeletion));
+                  setConfirmBulkDelete(false);
+                  setIsEditing(false);
+                  setSelectedForDeletion(new Set());
+                  setSelected(null);
+                }}
+                style={{ flex: 1, padding: '10px 0', background: '#f8717122', border: '1px solid #f8717144', borderRadius: 8, color: 'var(--fail)', fontFamily: 'var(--font-mono)', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}>
+                DELETE
               </button>
             </div>
           </div>

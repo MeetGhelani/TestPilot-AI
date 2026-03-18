@@ -45,9 +45,11 @@ export interface TestPlan {
 
 export interface StepResult {
   step: TestStep;
-  status: 'passed' | 'failed' | 'skipped';
+  status: 'passed' | 'failed' | 'skipped' | 'blocked';
   durationMs: number;
   error?: string;
+  reason?: string;
+  message?: string;
   /** File path to screenshot, if captured */
   screenshotPath?: string;
 }
@@ -55,6 +57,7 @@ export interface StepResult {
 // ─── Test Result ─────────────────────────────────────────────────────────────
 
 export interface TestResult {
+  id?: string;
   plan: TestPlan;
   status: 'passed' | 'failed' | 'error';
   stepResults: StepResult[];
@@ -100,10 +103,12 @@ export interface AuditIssue {
   message: string;
   url?: string;
   location?: string;
-  severity: 'critical' | 'moderate' | 'low';
+  severity: 'critical' | 'high' | 'moderate' | 'low';
   impact?: string;
   recommendation?: string;
   selector?: string;
+  confidence?: 'high' | 'medium' | 'low';
+  deduction?: number; // Optional tracking of score impact
 }
 
 export interface AuditCategory {

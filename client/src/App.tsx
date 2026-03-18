@@ -17,6 +17,7 @@ export interface StepResult {
 }
 
 export interface TestResult {
+  id?: string;
   plan: { title: string; platform: string; naturalLanguageInput: string; steps: { action: string; target?: string; value?: string; description: string; optional?: boolean }[] }
   status: 'passed' | 'failed' | 'error'
   stepResults: StepResult[]
@@ -109,6 +110,20 @@ export default function App() {
     setHistory([])
   }
 
+  const handleDeleteHistoryItem = async (id: string) => {
+    await fetch(`http://localhost:3001/api/history/${id}`, { method: 'DELETE' })
+    fetchHistory()
+  }
+
+  const handleDeleteMultipleHistoryItems = async (ids: string[]) => {
+    await fetch(`http://localhost:3001/api/history/delete-bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids })
+    })
+    fetchHistory()
+  }
+
   const TAB_LABELS: Record<TabId, string> = {
     run: 'Run test',
     record: 'Record & replay',
@@ -186,7 +201,7 @@ export default function App() {
           </div>
         ) : (
           <div style={{ flex: 1, padding: 28, overflowY: 'auto' }}>
-            <HistoryPanel history={history} onClear={handleClearHistory} />
+            <HistoryPanel history={history} onClear={handleClearHistory} onDeleteItem={handleDeleteHistoryItem} onDeleteItems={handleDeleteMultipleHistoryItems} />
           </div>
         )}
       </div>

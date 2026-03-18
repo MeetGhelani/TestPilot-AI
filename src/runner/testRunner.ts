@@ -123,19 +123,21 @@ function generateHTMLReport(result: TestResult, outputDir: string): string {
   const passed = stepResults.filter((r) => r.status === 'passed').length;
   const failed = stepResults.filter((r) => r.status === 'failed').length;
   const skipped = stepResults.filter((r) => r.status === 'skipped').length;
+  const blocked = stepResults.filter((r) => r.status === 'blocked').length;
 
   const statusColor = status === 'passed' ? '#1D9E75' : '#D85A30';
   const statusLabel = status.toUpperCase();
 
   const stepsHTML = stepResults
     .map((r, i) => {
-      const color = r.status === 'passed' ? '#1D9E75' : r.status === 'failed' ? '#D85A30' : '#888780';
-      const icon = r.status === 'passed' ? '✓' : r.status === 'failed' ? '✗' : '–';
+      const color = r.status === 'passed' ? '#1D9E75' : r.status === 'failed' ? '#D85A30' : r.status === 'blocked' ? '#D97706' : '#888780';
+      const icon = r.status === 'passed' ? '✓' : r.status === 'failed' ? '✗' : r.status === 'blocked' ? '⚠️' : '–';
       const screenshot = r.screenshotPath
         ? `<div style="margin-top:8px"><img src="${path.relative(outputDir, r.screenshotPath)}" style="max-width:100%;border-radius:6px;border:1px solid #e0e0e0" /></div>`
         : '';
-      const error = r.error
-        ? `<div style="margin-top:6px;padding:8px;background:#fff5f5;border-left:3px solid #D85A30;font-family:monospace;font-size:12px;color:#712B13">${r.error}</div>`
+      const errorMsg = r.message || r.error;
+      const error = errorMsg
+        ? `<div style="margin-top:6px;padding:8px;background:${r.status === 'blocked' ? '#fffbeb' : '#fff5f5'};border-left:3px solid ${color};font-family:monospace;font-size:12px;color:#712B13">${errorMsg}</div>`
         : '';
 
       return `
@@ -194,6 +196,10 @@ function generateHTMLReport(result: TestResult, outputDir: string): string {
         <div style="text-align:center">
           <div style="font-size:24px;font-weight:500;color:#D85A30">${failed}</div>
           <div style="font-size:12px;color:#888780">failed</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:24px;font-weight:500;color:#D97706">${blocked}</div>
+          <div style="font-size:12px;color:#888780">blocked</div>
         </div>
         <div style="text-align:center">
           <div style="font-size:24px;font-weight:500;color:#888780">${skipped}</div>

@@ -133,6 +133,23 @@ app.delete('/api/history', (_req, res) => {
   res.json({ ok: true });
 });
 
+app.delete('/api/history/:id', (req, res) => {
+  const { id } = req.params;
+  const history = loadHistory();
+  const updated = history.filter((item: any) => (item.id || item.timestamp || item.startedAt) !== id);
+  saveHistory(updated);
+  res.json({ ok: true });
+});
+
+app.post('/api/history/delete-bulk', (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  const history = loadHistory();
+  const updated = history.filter((item: any) => !ids.includes(item.id || item.timestamp || item.startedAt));
+  saveHistory(updated);
+  res.json({ ok: true });
+});
+
 // ─── Replay status / abort (used by RecordReplay UI) ─────────────────────────
 
 app.get('/api/replay/status', (_req, res) => {
@@ -263,6 +280,14 @@ app.delete('/api/audits', (_req, res) => {
 app.delete('/api/audits/:id', (req, res) => {
   const { id } = req.params;
   const updatedAudits = loadAudits().filter(audit => audit.id !== id);
+  saveAudits(updatedAudits);
+  res.json({ ok: true });
+});
+
+app.post('/api/audits/delete-bulk', (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  const updatedAudits = loadAudits().filter(audit => !ids.includes(audit.id));
   saveAudits(updatedAudits);
   res.json({ ok: true });
 });
