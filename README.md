@@ -26,7 +26,10 @@ npx ts-node server/index.ts
 cd client
 npm run dev
 
-# 6. Open in browser
+# 6. Run a test via CLI (Optional)
+npx ts-node src/cli.ts -p web -u https://example.com -t "verify header is visible"
+
+# 7. Open in browser
 # http://localhost:5173
 ```
 
@@ -105,19 +108,46 @@ Scans your site and suggests exactly what to test — no guessing.
 
 ---
 
-### Scan Site
-Auto-detects CSS selectors for common elements on your site.
+### Site Auditor
+Deeply audit any site for performance, accessibility, SEO, and more.
 
-- Scans header, footer, navigation, logo, login button, search, cart, products, hero
-- Saves selectors to `reports/selectors.json`
-- These selectors are automatically used in all future tests for more accurate targeting
+1. Enter the site URL
+2. Choose a **Persona** (Standard, Screen Reader, Low Vision, Keyboard Only)
+3. Toggle **SEO Audit** if required
+4. Click **▶ RUN FULL AUDIT**
+5. View detailed results across 7 categories:
+   - **Functional**: Site uptime and auth status
+   - **Performance**: FCP, TBT, CLS, and Memory usage
+   - **Accessibility**: Missing alt-text, input labels, heading structure
+   - **SEO**: Meta tags, canonicals, robots.txt, OG tags
+   - **Links**: Scans for 404s and network errors
+   - **Console**: Captures JS errors and uncaught exceptions
+   - **UI**: Detects layout shifts and horizontal overflow
+6. Each category gets a **0-100 Score** and status (Passed/Warning/Failed)
+7. Audit reports are saved to `data/audits.json` for later review
+
+---
+
+### CLI Tool
+Run tests directly from your terminal.
+
+```bash
+npx ts-node src/cli.ts --platform <web|mobile|desktop> --url <target> --test "<description>"
+```
+
+**Common Flags:**
+- `-p, --platform`: `web`, `mobile`, or `desktop`
+- `-u, --url`: Site URL or App path
+- `-t, --test`: Plain English test description
+- `--no-headless`: Run with visible browser (web only)
 
 ---
 
 ### History
-Every test run is saved and viewable anytime.
+Every test run and audit is saved and viewable anytime.
 
-- Click any run in the list to see full step-by-step results on the right
+- Click any test run in the list to see full step-by-step results
+- View **Audits** history to track site health over time
 - Screenshots shown inline — click to expand fullscreen
 - Download the HTML report for any run
 - **Clear all** with confirmation popup
@@ -175,10 +205,13 @@ ai-test-tool/
 ├── server/
 │   └── index.ts              — Express API server
 ├── src/
-│   ├── engine/
-│   │   └── smartSelector.ts  — Multi-strategy selector + auto-heal + retry
 │   ├── ai/
 │   │   └── testGenerator.ts  — NL → test steps parser
+│   ├── auditor/
+│   │   └── siteAuditor.ts    — Deep audit engine (Perf, A11y, SEO)
+│   ├── cli.ts                — Command line interface
+│   ├── engine/
+│   │   └── smartSelector.ts  — Multi-strategy selector + auto-heal + retry
 │   ├── drivers/
 │   │   ├── webDriver.ts      — Playwright web driver
 │   │   ├── mobileDriver.ts   — Appium mobile driver
@@ -197,6 +230,7 @@ ai-test-tool/
 │   └── src/
 │       ├── App.tsx
 │       └── components/
+│           ├── AuditPanel.tsx
 │           ├── TestForm.tsx
 │           ├── ResultPanel.tsx
 │           ├── HistoryPanel.tsx
@@ -206,6 +240,7 @@ ai-test-tool/
 │           ├── SiteScanner.tsx
 │           └── ScreenshotViewer.tsx
 ├── reports/                  — Auto-generated reports + screenshots
+├── data/                     — Persistent storage for scans and audits
 └── package.json
 ```
 
@@ -221,6 +256,7 @@ ai-test-tool/
 | `reports/selectors.json` | Auto-detected site selectors |
 | `reports/screenshots/` | Per-step screenshots |
 | `reports/report-*.html` | Downloadable HTML reports |
+| `data/audits.json` | Deep site audit results |
 
 ---
 
