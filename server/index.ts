@@ -19,6 +19,7 @@ import type { ScanSummary } from '../src/suggester/testSuggester';
 import type { TestPlan, AuditResult } from '../src/types/index';
 import { runFullAudit } from '../src/auditor/siteAuditor';
 import { deviceProfiles } from '../src/auditor/deviceProfiles';
+import { generateReportHtml } from './reportTemplate';
 
 const app = express();
 const PORT = 3001;
@@ -222,8 +223,8 @@ app.post('/api/audit', async (req, res) => {
   const { url, authUser, authPass, persona, includeSeo, compare } = req.body;
   if (!url) return res.status(400).json({ error: 'url is required' });
   try {
-    const options = { 
-      auth: (authUser || authPass) ? { username: authUser, password: authPass } : undefined, 
+    const options = {
+      auth: (authUser || authPass) ? { username: authUser, password: authPass } : undefined,
       persona,
       includeSeo: includeSeo !== false
     };
@@ -233,7 +234,7 @@ app.post('/api/audit', async (req, res) => {
     if (compare) {
       const profiles = ['desktop', 'mobile', 'lowEndMobile'];
       const comparisons: Record<string, AuditResult> = {};
-      
+
       for (const p of profiles) {
         comparisons[p] = await runFullAudit(url, { ...options, profile: p });
       }
@@ -261,8 +262,40 @@ app.post('/api/audit', async (req, res) => {
     const audits = loadAudits();
     audits.unshift(auditData);
     saveAudits(audits.slice(0, 50)); // Keep only the latest 50 audits
-    
+
     res.json(auditData);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+app.post('/api/audit/download-pdf', async (req, res) => {
+  const { auditId } = req.body;
+  if (!auditId) return res.status(400).json({ error: 'auditId is required' });
+
+  try {
+    const audits = loadAudits();
+    const audit = audits.find(a => a.id === auditId);
+    if (!audit) return res.status(404).json({ error: 'Audit not found' });
+
+    const html = generateReportHtml(audit);
+    const browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle' });
+
+    const fileName = `audit-report-${new URL(audit.url).hostname}-${Date.now()}.pdf`;
+    const filePath = path.join(REPORTS_DIR, fileName);
+
+    await page.pdf({
+      path: filePath,
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' }
+    });
+
+    await browser.close();
+
+    res.json({ pdfUrl: toWebPath(filePath) });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
@@ -295,20 +328,20 @@ app.post('/api/audits/delete-bulk', (req, res) => {
 app.post('/api/audit/highlight', async (req, res) => {
   const { url, selector, message } = req.body;
   if (!url || !selector) return res.status(400).json({ error: 'url and selector are required' });
-  
+
   try {
     const browser = await chromium.launch({ headless: false });
     const context = await browser.newContext();
     const page = await context.newPage();
-    
+
     await page.goto(url, { waitUntil: 'networkidle' });
-    
+
     await page.evaluate(({ sel, msg }: { sel: string, msg: string }) => {
       const el = document.querySelector(sel);
       if (!el) return;
-      
+
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      
+
       // Wait a bit for scroll to finish
       setTimeout(() => {
         const rect = el.getBoundingClientRect();
@@ -325,7 +358,7 @@ app.post('/api/audit/highlight', async (req, res) => {
         highlight.style.left = rect.left + 'px';
         highlight.style.width = rect.width + 'px';
         highlight.style.height = rect.height + 'px';
-        
+
         // Add a label
         const label = document.createElement('div');
         label.innerText = (msg || 'AUDIT ISSUE ELEMENT').toUpperCase();
@@ -341,9 +374,9 @@ app.post('/api/audit/highlight', async (req, res) => {
         label.style.whiteSpace = 'nowrap';
         label.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
         highlight.appendChild(label);
-        
+
         document.body.appendChild(highlight);
-        
+
         // Pulsing effect
         highlight.animate([
           { opacity: 0.6, transform: 'scale(1)' },

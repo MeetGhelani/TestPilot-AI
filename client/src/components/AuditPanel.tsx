@@ -594,13 +594,14 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                 <>
                   <button
                     onClick={() => setIsEditing(true)}
-                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--accent)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1 }}>
+                    disabled={history.length === 0}
+                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--accent)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1, opacity: history.length === 0 ? 0.3 : 1, pointerEvents: history.length === 0 ? 'none' : 'auto'}}>
                     EDIT
                   </button>
                   <button
                     onClick={() => setConfirmModal({ type: 'clear-all' })}
                     disabled={history.length === 0}
-                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--fail)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1, opacity: history.length === 0 ? 0.3 : 1 }}>
+                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--fail)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1, opacity: history.length === 0 ? 0.3 : 1, pointerEvents: history.length === 0 ? 'none' : 'auto' }}>
                     CLEAR ALL
                   </button>
                 </>
@@ -926,7 +927,50 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                   <div style={{ fontSize: 12, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12, fontWeight: 700 }}>
                     {result.comparisons && selectedComparisonId ? `Details: ${selectedComparisonId === 'lowEndMobile' ? 'Low-end Mobile' : selectedComparisonId.toUpperCase()}` : 'Overall Health Score'}
                   </div>
-                  <div style={{ fontSize: 64, fontWeight: 800, color: getScoreColor(displayResult.totalScore), lineHeight: 1 }}>{displayResult.totalScore}<span style={{ fontSize: 24, color: '#444' }}>/100</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+                    <div style={{ fontSize: 64, fontWeight: 800, color: getScoreColor(displayResult.totalScore), lineHeight: 1 }}>{displayResult.totalScore}<span style={{ fontSize: 24, color: '#444' }}>/100</span></div>
+                    {result.id && (
+                      <button
+                        onClick={async () => {
+                          const btn = document.getElementById('pdf-download-btn');
+                          if (btn) btn.innerText = '● GENERATING PDF...';
+                          try {
+                            const res = await fetch('http://localhost:3001/api/audit/download-pdf', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ auditId: result.id })
+                            });
+                            const data = await res.json();
+                            if (data.pdfUrl) {
+                              window.open(`http://localhost:3001${data.pdfUrl}`, '_blank');
+                            }
+                          } catch (err) {
+                            console.error('PDF generation failed:', err);
+                          } finally {
+                            if (btn) btn.innerText = '↓ DOWNLOAD PDF REPORT';
+                          }
+                        }}
+                        id="pdf-download-btn"
+                        style={{
+                          background: 'rgba(200, 240, 105, 0.1)',
+                          border: '1px solid var(--accent)',
+                          color: 'var(--accent)',
+                          padding: '8px 16px',
+                          borderRadius: 8,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          fontFamily: 'var(--font-mono)',
+                          letterSpacing: 0.5,
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = '#000'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(200, 240, 105, 0.1)'; e.currentTarget.style.color = 'var(--accent)'; }}
+                      >
+                        ↓ DOWNLOAD PDF REPORT
+                      </button>
+                    )}
+                  </div>
                   <div style={{ marginTop: 14, color: 'var(--text3)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>REPORT_ID: {result.id || 'LIVE_PREVIEW'}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -966,7 +1010,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                                   <span style={{ color: issue.type === 'error' ? '#f87171' : '#fbbf24', fontSize: 22 }}>{issue.type === 'error' ? '⊗' : '⚠'}</span>
                                   <span style={{ color: 'var(--text)', fontWeight: 600, fontSize: 15 }}>{issue.message}</span>
-                                  <span style={{ fontSize: 9, padding: '2px 6px', background: issue.severity === 'critical' ? '#411' : '#222', color: issue.severity === 'critical' ? '#f87171' : 'var(--text3)', borderRadius: 4, textTransform: 'uppercase' }}>{issue.severity}</span>
+                                  <span style={{ fontSize: 9, padding: '2px 6px', background: issue.severity === 'critical' ? '#411' : '#222', color: issue.severity === 'critical' ? '#f87171' : 'var(--text2)', borderRadius: 4, textTransform: 'uppercase' }}>{issue.severity}</span>
                                   {issue.confidence && (
                                     <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(255,255,255,0.05)', color: 'var(--text3)', borderRadius: 4, textTransform: 'uppercase', border: '1px solid rgba(255,255,255,0.1)' }}>
                                       Confidence: {issue.confidence}

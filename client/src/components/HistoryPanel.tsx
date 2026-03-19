@@ -90,9 +90,36 @@ export default function HistoryPanel({ history, onClear, onDeleteItem, onDeleteI
                     setSelected(isSelected ? null : r);
                   }
                 }}
-                style={{ background: 'var(--surface)', border: `1px solid ${isEditing ? (isChecked ? 'var(--fail)' : 'var(--border)') : (isSelected ? 'var(--border2)' : 'var(--border)')}`, borderRadius: 10, padding: '12px 14px', cursor: 'pointer', transition: 'all 0.15s', borderLeft: isEditing ? (isChecked ? `3px solid var(--fail)` : `1px solid var(--border)`) : (isSelected ? `5px solid var(--accent)` : `1px solid var(--border)`) }}
-                onMouseEnter={e => { if ((!isSelected || isEditing) && (!isEditing || !isChecked)) e.currentTarget.style.borderColor = 'var(--border2)' }}
-                onMouseLeave={e => { if ((!isSelected || isEditing) && (!isEditing || !isChecked)) e.currentTarget.style.borderColor = 'var(--border)' }}
+                style={{
+                  background: 'var(--surface)',
+                  borderRadius: 10,
+                  padding: '12px 14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.1s ease',
+                  border: isChecked 
+                    ? `1.5px solid var(--fail)` 
+                    : (isSelected ? `1.5px solid var(--border2)` : `1px solid var(--border)`),
+                  borderLeft: isChecked 
+                    ? `4px solid var(--fail)` 
+                    : (isSelected ? `5px solid var(--accent)` : `1px solid var(--border)`),
+                  boxShadow: isChecked 
+                    ? '0 0 12px #f8717115' 
+                    : (isSelected ? '0 0 12px #c8f06915' : 'none'),
+                  transform: isChecked ? 'translateX(2px)' : 'none',
+                  opacity: isEditing && !isChecked ? 0.8 : 1
+                }}
+                onMouseEnter={e => {
+                  if (!isChecked && !isSelected) {
+                    e.currentTarget.style.borderColor = 'var(--border2)';
+                    e.currentTarget.style.background = 'var(--surface2)';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isChecked && !isSelected) {
+                    e.currentTarget.style.borderColor = 'var(--border)';
+                    e.currentTarget.style.background = 'var(--surface)';
+                  }
+                }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                   {isEditing && (
