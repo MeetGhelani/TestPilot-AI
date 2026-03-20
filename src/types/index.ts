@@ -97,6 +97,8 @@ export interface CLIOptions {
 }
 
 // ─── Site Audit ──────────────────────────────────────────────────────────────
+ 
+export type AuditPersona = 'screen-reader' | 'low-vision' | 'keyboard-only' | 'color-blind' | 'all';
 
 export interface AuditIssue {
   type: 'error' | 'warning' | 'info';
@@ -128,7 +130,7 @@ export interface AuditResult {
     links: AuditCategory;
     console: AuditCategory;
     performance: AuditCategory;
-    accessibility: AuditCategory;
+    accessibility?: AuditCategory;
     seo?: AuditCategory;
   };
   totalScore: number;

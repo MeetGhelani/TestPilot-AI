@@ -220,13 +220,14 @@ app.post('/api/suggest', async (req, res) => {
 // ─── Site Audit ──────────────────────────────────────────────────────────────
 
 app.post('/api/audit', async (req, res) => {
-  const { url, authUser, authPass, persona, includeSeo, compare } = req.body;
+  const { url, authUser, authPass, persona, includeSeo, includeAccessibility, compare } = req.body;
   if (!url) return res.status(400).json({ error: 'url is required' });
   try {
     const options = {
       auth: (authUser || authPass) ? { username: authUser, password: authPass } : undefined,
       persona,
-      includeSeo: includeSeo !== false
+      includeSeo: includeSeo !== false,
+      includeAccessibility: includeAccessibility !== false
     };
 
     let auditData: any;

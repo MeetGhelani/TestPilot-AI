@@ -20,6 +20,56 @@ export function generateReportHtml(audit: AuditResult): string {
       .replace(/'/g, '&#039;');
   };
 
+  const metricDescriptions: Record<string, string> = {
+    'FCP': 'First Contentful Paint: Time until the first message/image is visible.',
+    'TBT': 'Total Blocking Time: Total time user input was blocked.',
+    'CLS': 'Cumulative Layout Shift: Visual stability during load.',
+    'Page Size': 'Total payload weight of all resources.',
+    'Memory Usage': 'Current JS heap memory consumption.',
+    'DOM Nodes': 'Total element count (impacts interactivity).',
+    'Title Length': 'SEO title tag length.',
+    'H1 Count': 'SEO heading structure check.',
+    'Robots.txt': 'Presence of crawler control file.',
+    'OG Tags': 'Social media link preview tags.'
+  };
+
+  const getMetricInfo = (label: string, value: string | number) => {
+    const valStr = String(value);
+    const num = parseFloat(valStr.replace(/[^0-9.]/g, ''));
+
+    if (label === 'FCP') {
+      if (num <= 1800) return { color: '#4ade80', label: 'GOOD', limit: '≤ 1.8s' };
+      if (num <= 3000) return { color: '#fbbf24', label: 'N.I.', limit: '1.8-3s' };
+      return { color: '#f87171', label: 'POOR', limit: '> 3s' };
+    }
+    if (label === 'TBT') {
+      if (num <= 200) return { color: '#4ade80', label: 'GOOD', limit: '≤ 200ms' };
+      if (num <= 600) return { color: '#fbbf24', label: 'N.I.', limit: '200-600ms' };
+      return { color: '#f87171', label: 'POOR', limit: '> 600ms' };
+    }
+    if (label === 'CLS') {
+      if (num <= 0.1) return { color: '#4ade80', label: 'GOOD', limit: '≤ 0.1' };
+      if (num <= 0.25) return { color: '#fbbf24', label: 'N.I.', limit: '0.1-0.25' };
+      return { color: '#f87171', label: 'POOR', limit: '> 0.25' };
+    }
+    if (label === 'Memory Usage') {
+      if (num <= 50) return { color: '#4ade80', label: 'GOOD', limit: '≤ 50MB' };
+      if (num <= 150) return { color: '#fbbf24', label: 'MOD.', limit: '50-150MB' };
+      return { color: '#f87171', label: 'HEAVY', limit: '> 150MB' };
+    }
+    if (label === 'DOM Nodes') {
+      if (num <= 1500) return { color: '#4ade80', label: 'GOOD', limit: '≤ 1.5k' };
+      if (num <= 3000) return { color: '#fbbf24', label: 'HEAVY', limit: '1.5-3k' };
+      return { color: '#f87171', label: 'V.HEAVY', limit: '> 3k' };
+    }
+    if (label === 'Page Size') {
+      if (num <= 2) return { color: '#4ade80', label: 'GOOD', limit: '≤ 2MB' };
+      if (num <= 5) return { color: '#fbbf24', label: 'MOD.', limit: '2-5MB' };
+      return { color: '#f87171', label: 'HEAVY', limit: '> 5MB' };
+    }
+    return null;
+  };
+
   const renderCategory = (name: string, cat: AuditCategory) => `
     <div class="category-card">
       <div class="category-header">
@@ -29,6 +79,34 @@ export function generateReportHtml(audit: AuditResult): string {
       <div class="score-bar">
         <div class="score-fill" style="width: ${cat.score}%; background: ${getScoreColor(cat.score)}"></div>
       </div>
+      
+      ${(() => {
+        const filteredMetrics = Object.entries(cat.metrics || {}).filter(([label]) => label !== 'JS Heap Used' && label !== 'JS Heap Limit');
+        if (filteredMetrics.length === 0) return '';
+        return `
+          <div class="metrics-container">
+            ${filteredMetrics.map(([label, value]) => {
+              const info = getMetricInfo(label, value);
+              return `
+                <div class="metric-item">
+                  <div class="metric-info">
+                    <div class="metric-label">${label}</div>
+                    <div class="metric-desc">${metricDescriptions[label] || ''}</div>
+                  </div>
+                  <div class="metric-value-container">
+                    <div class="metric-status-row">
+                      ${info ? `<span class="metric-badge" style="background: ${info.color}22; color: ${info.color}; border: 1px solid ${info.color}44">${info.label}</span>` : ''}
+                      <span class="metric-value" style="color: ${info?.color || 'var(--text)'}">${value}</span>
+                    </div>
+                    ${info ? `<div class="metric-limit">Limit: ${info.limit}</div>` : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      })()}
+
       <div class="category-status">${cat.issues.length} issues detected</div>
     </div>
   `;
@@ -115,7 +193,7 @@ export function generateReportHtml(audit: AuditResult): string {
           display: flex;
           gap: 40px;
           margin-bottom: 50px;
-          background: linear-gradient(135deg, #111 0%, #1a1a1a 100%);
+          background: linear-gradient(135deg, #111 0%, #292929ff 100%);
           padding: 40px;
           border-radius: 24px;
           border: 1px solid var(--border);
@@ -176,6 +254,8 @@ export function generateReportHtml(audit: AuditResult): string {
           border: 1px solid var(--border);
           border-radius: 16px;
           padding: 24px;
+          display: flex;
+          flex-direction: column;
         }
 
         .category-header {
@@ -211,6 +291,79 @@ export function generateReportHtml(audit: AuditResult): string {
         .category-status {
           font-size: 12px;
           color: var(--text3);
+          margin-top: auto;
+        }
+
+        .metrics-container {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-bottom: 20px;
+          padding: 12px;
+          background: rgba(255,255,255,0.02);
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .metric-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 10px;
+        }
+
+        .metric-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          flex: 1;
+        }
+
+        .metric-label {
+          font-size: 11px;
+          color: var(--text);
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+
+        .metric-desc {
+          font-size: 10px;
+          color: var(--text3);
+          line-height: 1.3;
+        }
+
+        .metric-value-container {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 2px;
+        }
+
+        .metric-status-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .metric-badge {
+          font-size: 9px;
+          padding: 1px 4px;
+          border-radius: 4px;
+          font-weight: 800;
+          font-family: var(--font-mono);
+        }
+
+        .metric-value {
+          font-size: 14px;
+          font-weight: 700;
+          font-family: var(--font-mono);
+        }
+
+        .metric-limit {
+          font-size: 10px;
+          color: var(--text3);
+          font-style: italic;
         }
 
         .section-title {
@@ -338,24 +491,24 @@ export function generateReportHtml(audit: AuditResult): string {
         ${renderCategory('Functional', categories.functional)}
         ${renderCategory('UI & Visuals', categories.ui)}
         ${renderCategory('Performance', categories.performance)}
-        ${renderCategory('Accessibility', categories.accessibility)}
+        ${categories.accessibility ? renderCategory('Accessibility', categories.accessibility) : ''}
         ${renderCategory('Links', categories.links)}
         ${categories.seo ? renderCategory('SEO', categories.seo) : ''}
       </div>
 
       ${(() => {
-        const criticalIssues = Object.values(categories)
-          .flatMap(c => (c as AuditCategory).issues)
-          .filter(i => i.severity === 'critical' || i.severity === 'high')
-          .slice(0, 5);
-        if (criticalIssues.length === 0) return '';
-        return `
+      const criticalIssues = Object.values(categories)
+        .flatMap(c => (c as AuditCategory).issues)
+        .filter(i => i.severity === 'critical' || i.severity === 'high')
+        .slice(0, 5);
+      if (criticalIssues.length === 0) return '';
+      return `
           <div class="section-title">Critical Issues to Resolve</div>
           <div class="issue-list">
             ${criticalIssues.map(renderIssue).join('')}
           </div>
         `;
-      })()}
+    })()}
 
       <div class="section-title">Full Detailed Breakdown</div>
       ${[
@@ -379,7 +532,7 @@ export function generateReportHtml(audit: AuditResult): string {
       <hr style="border: none; border-top: 1.5px solid var(--border); margin: 20px 0;">
 
       <div class="footer-note">
-        Generated by TestPilot AI Site Auditor. &copy; 2026 TestPilot AI.
+        Generated by TestPilot AI - Site Auditor. &copy; 2026 TestPilot AI.
       </div>  
     </body>
     </html>

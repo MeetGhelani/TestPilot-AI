@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import type { AuditResult, AuditCategory, AuditIssue } from '../../../src/types/index'
+import type { AuditResult, AuditCategory, AuditIssue, AuditPersona } from '../../../src/types/index'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -33,7 +33,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
   const [useAuth, setUseAuth] = useState(false)
   const [authUser, setAuthUser] = useState('')
   const [authPass, setAuthPass] = useState('')
-  const [persona, setPersona] = useState<'screen-reader' | 'low-vision' | 'keyboard-only' | 'all'>('all')
+  const [persona, setPersona] = useState<'screen-reader' | 'low-vision' | 'keyboard-only' | 'color-blind' | 'all'>('all')
   const [result, setResult] = useState<AuditResult | null>(null)
   const [history, setHistory] = useState<AuditResult[]>([])
   const [running, setRunning] = useState(false)
@@ -55,6 +55,8 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
   }
 
   const [includeSeo, setIncludeSeo] = useState(true)
+  const [includeAccessibility, setIncludeAccessibility] = useState(true)
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     fetchAudits()
@@ -77,6 +79,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
           authPass: useAuth ? authPass : undefined,
           persona,
           includeSeo,
+          includeAccessibility,
           compare
         }),
       })
@@ -474,10 +477,10 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                 }}>{res.totalScore}</div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                {Object.entries(res.categories).slice(0, 4).map(([name, cat]) => (
-                  <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '4px 8px', borderRadius: 6 }}>
-                    <span style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'capitalize' }}>{name.slice(0, 4)}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: 6 }}>
+                {Object.entries(res.categories).map(([name, cat]) => (
+                  <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '4px 6px', borderRadius: 6, opacity: 0.9 }}>
+                    <span title={name} style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name === 'accessibility' ? 'A11y' : name.slice(0, 4)}</span>
                     <span style={{ fontSize: 10, fontWeight: 700, color: getScoreColor(cat.score) }}>{cat.score}</span>
                   </div>
                 ))}
@@ -543,8 +546,8 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
               {confirmModal.type === 'clear-all'
                 ? 'This will permanently remove all saved site audits. This action cannot be undone.'
                 : confirmModal.type === 'delete-selected'
-                ? `This will permanently delete ${selectedForDeletion.size} selected audits.`
-                : 'This individual report will be permanently deleted from your history.'}
+                  ? `This will permanently delete ${selectedForDeletion.size} selected audits.`
+                  : 'This individual report will be permanently deleted from your history.'}
             </p>
             <div style={{ display: 'flex', gap: 12 }}>
               <button
@@ -595,7 +598,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                   <button
                     onClick={() => setIsEditing(true)}
                     disabled={history.length === 0}
-                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--accent)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1, opacity: history.length === 0 ? 0.3 : 1, pointerEvents: history.length === 0 ? 'none' : 'auto'}}>
+                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--accent)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1, opacity: history.length === 0 ? 0.3 : 1, pointerEvents: history.length === 0 ? 'none' : 'auto' }}>
                     EDIT
                   </button>
                   <button
@@ -803,68 +806,136 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
             </button>
           </div>
 
+
           <div style={{ maxWidth: 660, margin: '20px auto 0', display: 'flex', flexDirection: 'column', gap: 20, textAlign: 'left', padding: '0 4px' }}>
-            <div>
-              <label style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>Persona Audit Focus</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {(['all', 'screen-reader', 'low-vision', 'keyboard-only'] as const).map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setPersona(p)}
-                    style={{
-                      flex: 1,
-                      padding: '8px 0',
-                      background: persona === p ? 'var(--accent)' : 'var(--surface2)',
-                      border: `1px solid ${persona === p ? 'var(--accent)' : 'var(--border2)'}`,
-                      borderRadius: 8,
-                      color: persona === p ? '#0f0f0f' : 'var(--text2)',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 12,
-                      cursor: 'pointer',
-                      fontWeight: persona === p ? 500 : 400,
-                      transition: 'all 0.15s'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
-                  >
-                    {p.replace('-', ' ')}
-                  </button>
-                ))}
-              </div>
-              <p style={{ color: 'var(--accent)', opacity: 0.7, fontSize: 12, marginTop: 10 }}>
-                {persona === 'all' && 'Comprehensive full-spectrum audit for all audiences.'}
-                {persona === 'screen-reader' && 'Prioritizes ARIA roles, semantics, and audio navigation.'}
-                {persona === 'low-vision' && 'Prioritizes layout stability, contrast, and visual flow.'}
-                {persona === 'keyboard-only' && 'Prioritizes focus management and keyboard operability.'}
-              </p>
-            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                gap: '16px 24px',
+                background: 'rgba(255,255,255,0.02)',
+                padding: '24px',
+                borderRadius: '16px',
+                border: '1px solid var(--border2)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div onClick={() => {
+                    const newVal = !useAuth;
+                    setUseAuth(newVal);
+                    if (newVal) setShowPassword(false);
+                  }} style={{ width: 36, height: 20, flexShrink: 0, borderRadius: 10, background: useAuth ? 'var(--accent)' : 'var(--surface2)', border: '1px solid var(--border2)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+                    <div style={{ position: 'absolute', top: 2, left: useAuth ? 17 : 2, width: 14, height: 14, borderRadius: '50%', background: useAuth ? '#0f0f0f' : 'var(--text3)', transition: 'left 0.2s' }} />
+                  </div>
+                  <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 500 }}>Site requires Authentication</span>
+                </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div onClick={() => setUseAuth(!useAuth)} style={{ width: 36, height: 20, borderRadius: 10, background: useAuth ? 'var(--accent)' : 'var(--surface2)', border: '1px solid var(--border2)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
-                  <div style={{ position: 'absolute', top: 2, left: useAuth ? 17 : 2, width: 14, height: 14, borderRadius: '50%', background: useAuth ? '#0f0f0f' : 'var(--text3)', transition: 'left 0.2s' }} />
-                </div>
-                <span style={{ fontSize: 12, color: 'var(--text2)' }}>Site requires Authentication</span>
-              </div>
-              {useAuth && (
-                <div style={{ display: 'flex', gap: 12, padding: '14px', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 10, animation: 'fadeIn 0.2s ease-out' }}>
-                  <input style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 6, padding: '8px 12px', color: 'var(--text)', fontSize: 13, outline: 'none' }} placeholder="Username" value={authUser} onChange={e => setAuthUser(e.target.value)} />
-                  <input type="password" style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 6, padding: '8px 12px', color: 'var(--text)', fontSize: 13, outline: 'none' }} placeholder="Password" value={authPass} onChange={e => setAuthPass(e.target.value)} />
-                </div>
-              )}
+                {useAuth && (
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 12, padding: '16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, animation: 'fadeIn 0.2s ease-out' }}>
+                    <input
+                      style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 8, padding: '10px 14px', color: 'var(--text)', fontSize: 13, outline: 'none' }}
+                      placeholder="Username"
+                      value={authUser}
+                      onChange={e => setAuthUser(e.target.value)}
+                    />
+                    <div style={{ flex: 1, position: 'relative' }}>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        style={{ width: '100%', background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 8, padding: '10px 38px 10px 14px', color: 'var(--text)', fontSize: 13, outline: 'none' }}
+                        placeholder="Password"
+                        value={authPass}
+                        onChange={e => setAuthPass(e.target.value)}
+                      />
+                      <button
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '8px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text3)',
+                          cursor: 'pointer',
+                          padding: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'color 0.2s',
+                          fontSize: '14px'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text3)')}
+                      >
+                        {showPassword ? '👁️' : '🙈'}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div onClick={() => setIncludeSeo(!includeSeo)} style={{ width: 36, height: 20, borderRadius: 10, background: includeSeo ? 'var(--accent)' : 'var(--surface2)', border: '1px solid var(--border2)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
-                  <div style={{ position: 'absolute', top: 2, left: includeSeo ? 17 : 2, width: 14, height: 14, borderRadius: '50%', background: includeSeo ? '#0f0f0f' : 'var(--text3)', transition: 'left 0.2s' }} />
-                </div>
-                <span style={{ fontSize: 12, color: 'var(--text2)' }}>Include Search & SEO Audit</span>
-              </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div onClick={() => setCompare(!compare)} style={{ width: 36, height: 20, borderRadius: 10, background: compare ? 'var(--accent)' : 'var(--surface2)', border: '1px solid var(--border2)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
-                  <div style={{ position: 'absolute', top: 2, left: compare ? 17 : 2, width: 14, height: 14, borderRadius: '50%', background: compare ? '#0f0f0f' : 'var(--text3)', transition: 'left 0.2s' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div onClick={() => setCompare(!compare)} style={{ width: 36, height: 20, flexShrink: 0, borderRadius: 10, background: compare ? 'var(--accent)' : 'var(--surface2)', border: '1px solid var(--border2)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+                    <div style={{ position: 'absolute', top: 2, left: compare ? 17 : 2, width: 14, height: 14, borderRadius: '50%', background: compare ? '#0f0f0f' : 'var(--text3)', transition: 'left 0.2s' }} />
+                  </div>
+                  <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 500 }}>Compare across devices (Desktop, Mobile, Low-end Mobile)</span>
                 </div>
-                <span style={{ fontSize: 12, color: 'var(--text2)' }}>Compare across devices (Desktop, Mobile, Low-end Mobile)</span>
+
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div onClick={() => setIncludeSeo(!includeSeo)} style={{ width: 36, height: 20, flexShrink: 0, borderRadius: 10, background: includeSeo ? 'var(--accent)' : 'var(--surface2)', border: '1px solid var(--border2)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+                    <div style={{ position: 'absolute', top: 2, left: includeSeo ? 17 : 2, width: 14, height: 14, borderRadius: '50%', background: includeSeo ? '#0f0f0f' : 'var(--text3)', transition: 'left 0.2s' }} />
+                  </div>
+                  <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 500 }}>Include Search & SEO Audit</span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div onClick={() => setIncludeAccessibility(!includeAccessibility)} style={{ width: 36, height: 20, flexShrink: 0, borderRadius: 10, background: includeAccessibility ? 'var(--accent)' : 'var(--surface2)', border: '1px solid var(--border2)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+                    <div style={{ position: 'absolute', top: 2, left: includeAccessibility ? 17 : 2, width: 14, height: 14, borderRadius: '50%', background: includeAccessibility ? '#0f0f0f' : 'var(--text3)', transition: 'left 0.2s' }} />
+                  </div>
+                  <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 500 }}>Include Accessibility Audit</span>
+                </div>
+
+                {includeAccessibility && (
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 16, padding: '16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, animation: 'fadeIn 0.2s ease-out' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <span style={{ fontSize: 12, color: 'var(--text1)', fontWeight: 700, fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
+                        👤 Targeted Testing Persona
+                      </span>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {(['all', 'screen-reader', 'low-vision', 'keyboard-only', 'color-blind'] as const).map(p => (
+                          <button
+                            key={p}
+                            onClick={() => setPersona(p)}
+                            style={{
+                              flex: 1,
+                              padding: '10px 0',
+                              background: persona === p ? 'var(--accent)' : 'var(--surface)',
+                              border: `1px solid ${persona === p ? 'var(--accent)' : 'var(--border2)'}`,
+                              borderRadius: 8,
+                              color: persona === p ? '#0f0f0f' : 'var(--text2)',
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: 12,
+                              cursor: 'pointer',
+                              fontWeight: persona === p ? 600 : 400,
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+                            onMouseLeave={e => e.currentTarget.style.borderColor = persona === p ? 'var(--accent)' : 'var(--border2)'}
+                          >
+                            {p.replace('-', ' ')}
+                          </button>
+                        ))}
+                      </div>
+                      <p style={{ fontSize: 11, color: 'var(--accent)', fontStyle: 'italic', margin: '4px 0 0', opacity: 0.8 }}>
+                        {persona === 'all' && 'Runs a comprehensive suite of accessibility, performance, and functional tests.'}
+                        {persona === 'screen-reader' && 'Focuses on ARIA labels, image alt text, and semantic structure.'}
+                        {persona === 'low-vision' && 'Focuses on layout stability and visual flow.'}
+                        {persona === 'keyboard-only' && 'Prioritizes focus management and keyboard operability.'}
+                        {persona === 'color-blind' && 'Tests contrast ratios and visual clarity for color-deficient users.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -905,7 +976,8 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
               borderTopColor: 'var(--accent)',
               borderRadius: '50%',
               marginBottom: 24,
-              boxShadow: '0 0 30px rgba(200,240,105,0.2)'
+              boxShadow: '0 0 30px rgba(189, 224, 105, 1)',
+              
             }} />
             <div style={{ textAlign: 'center' }}>
               <div style={{ color: 'var(--accent)', fontSize: 14, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8, fontFamily: 'var(--font-mono)' }}>Deep Analysis in Progress</div>
@@ -990,9 +1062,11 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                 <CategoryCard title="Broken Links" icon="🔗" cat={displayResult.categories.links} />
                 <CategoryCard title="Console & Errors" icon="📟" cat={displayResult.categories.console} />
                 <CategoryCard title="Performance" icon="⚡" cat={displayResult.categories.performance} />
-                <CategoryCard title="Accessibility" icon="♿" cat={displayResult.categories.accessibility} />
+                {displayResult.categories.accessibility && (
+                  <CategoryCard title="Accessibility" icon="♿" cat={displayResult.categories.accessibility!} />
+                )}
                 {displayResult.categories.seo && (
-                  <CategoryCard title="Search & SEO" icon="🔍" cat={displayResult.categories.seo} />
+                  <CategoryCard title="Search & SEO" icon="🔍" cat={displayResult.categories.seo!} />
                 )}
               </div>
 
@@ -1000,9 +1074,9 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                 <h3 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', borderLeft: '4px solid var(--accent)', paddingLeft: 16 }}>Detailed Observations</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {Object.entries(displayResult.categories).map(([key, cat]) => (
-                    cat.issues.length > 0 && (
+                    cat && cat.issues.length > 0 && (
                       <div key={key} style={{ background: '#0a0a0a', borderRadius: 16, padding: 24, border: '1px solid #1a1a1a' }}>
-                        <div style={{ fontSize: 11, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 20, fontWeight: 700 }}>{key} Issues ({cat.issues.length})</div>
+                        <div style={{ fontSize: 11, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 20, fontWeight: 700 }}>{key} Issues ({cat!.issues.length})</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                           {cat.issues.map((issue, i) => (
                             <div key={i} style={{ background: '#111', border: '1px solid #222', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>

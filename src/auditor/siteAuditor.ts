@@ -1,5 +1,5 @@
 import { chromium, Page, Browser } from 'playwright';
-import type { AuditResult, AuditIssue, AuditCategory } from '../types/index';
+import type { AuditResult, AuditIssue, AuditCategory, AuditPersona } from '../types/index';
 import { deviceProfiles } from './deviceProfiles';
 
 export interface AuditAuth {
@@ -7,17 +7,17 @@ export interface AuditAuth {
   password?: string;
 }
 
-export type AuditPersona = 'screen-reader' | 'low-vision' | 'keyboard-only' | 'all';
 
 export interface AuditOptions {
   auth?: AuditAuth;
   persona?: AuditPersona;
   includeSeo?: boolean;
+  includeAccessibility?: boolean;
   profile?: string;
 }
 
 export async function runFullAudit(url: string, options: AuditOptions = {}): Promise<AuditResult> {
-  const { auth, persona = 'all', includeSeo = true, profile: profileName = 'desktop' } = options;
+  const { auth, persona = 'all', includeSeo = true, includeAccessibility = true, profile: profileName = 'desktop' } = options;
   const profile = deviceProfiles[profileName] || deviceProfiles.desktop;
 
   let cleanUrl = url;
@@ -435,78 +435,80 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
         'Broken Links': brokenCount
       };
 
-      // 3. Accessibility - Tailored per Persona
-      const a11yChecks = await page.evaluate((p) => {
-        const results: { msg: string, impact: string, rec: string, sev: string, selector?: string }[] = [];
-        const totalElements = document.querySelectorAll('*').length;
+      if (includeAccessibility) {
+        // 3. Accessibility - Tailored per Persona
+        const a11yChecks = await page.evaluate((p) => {
+          const results: { msg: string, impact: string, rec: string, sev: string, selector?: string }[] = [];
+          const totalElements = document.querySelectorAll('*').length;
 
-        const getSelector = (el: Element): string => {
-          if (el.id) return `#${el.id}`;
-          if (el === document.body) return 'body';
+          const getSelector = (el: Element): string => {
+            if (el.id) return `#${el.id}`;
+            if (el === document.body) return 'body';
 
-          let path = [];
-          while (el.parentElement) {
-            let index = Array.from(el.parentElement.children).filter(c => c.tagName === el.tagName).indexOf(el) + 1;
-            path.unshift(`${el.tagName.toLowerCase()}:nth-of-type(${index})`);
-            el = el.parentElement;
-          }
-          return path.join(' > ');
-        };
+            let path = [];
+            while (el.parentElement) {
+              let index = Array.from(el.parentElement.children).filter(c => c.tagName === el.tagName).indexOf(el) + 1;
+              path.unshift(`${el.tagName.toLowerCase()}:nth-of-type(${index})`);
+              el = el.parentElement;
+            }
+            return path.join(' > ');
+          };
 
-        // 1. Image Check (Critical for Screen Readers)
-        document.querySelectorAll('img:not([alt])').forEach(img => {
-          results.push({
-            msg: `Image missing alt text: ${img.getAttribute('src')?.split('/').pop()}`,
-            impact: p === 'screen-reader' ? 'CRITICAL: Screen reader users have no idea what this image represents.' : 'Vision-impaired users using screen readers will have no idea what this image is.',
-            rec: 'Add an alt="..." attribute describing the image content.',
-            sev: p === 'screen-reader' ? 'critical' : 'moderate',
-            selector: getSelector(img)
-          });
-        });
-
-        // 2. Input Labels (Critical for Screen Readers & Keyboard users)
-        document.querySelectorAll('input:not([aria-label]):not([aria-labelledby])').forEach(input => {
-          const id = input.id;
-          if (!id || !document.querySelector(`label[for="${id}"]`)) {
+          // 1. Image Check (Critical for Screen Readers)
+          document.querySelectorAll('img:not([alt])').forEach(img => {
             results.push({
-              msg: `Form input missing label: "${(input as any).name || input.className}"`,
-              impact: 'Screen readers and keyboard users cannot easily identify what this input is for.',
-              rec: 'Add a <label> linked via the "for" attribute, or an aria-label.',
-              sev: (p === 'screen-reader' || p === 'keyboard-only') ? 'critical' : 'moderate',
-              selector: getSelector(input)
+              msg: `Image missing alt text: ${img.getAttribute('src')?.split('/').pop()}`,
+              impact: p === 'screen-reader' ? 'CRITICAL: Screen reader users have no idea what this image represents.' : 'Vision-impaired users using screen readers will have no idea what this image is.',
+              rec: 'Add an alt="..." attribute describing the image content.',
+              sev: p === 'screen-reader' ? 'critical' : 'moderate',
+              selector: getSelector(img)
+            });
+          });
+
+          // 2. Input Labels (Critical for Screen Readers & Keyboard users)
+          document.querySelectorAll('input:not([aria-label]):not([aria-labelledby])').forEach(input => {
+            const id = input.id;
+            if (!id || !document.querySelector(`label[for="${id}"]`)) {
+              results.push({
+                msg: `Form input missing label: "${(input as any).name || input.className}"`,
+                impact: 'Screen readers and keyboard users cannot easily identify what this input is for.',
+                rec: 'Add a <label> linked via the "for" attribute, or an aria-label.',
+                sev: (p === 'screen-reader' || p === 'keyboard-only') ? 'critical' : 'moderate',
+                selector: getSelector(input)
+              });
+            }
+          });
+
+          // 3. Headings (Important for Screen Reader navigation)
+          const h1s = document.querySelectorAll('h1').length;
+          if (h1s === 0) {
+            results.push({
+              msg: 'No H1 heading found',
+              impact: 'Search engines and screen reader users cannot identify the main topic of the page.',
+              rec: 'Add a single <h1> that summarizes the page content.',
+              sev: p === 'screen-reader' ? 'moderate' : 'low'
             });
           }
-        });
 
-        // 3. Headings (Important for Screen Reader navigation)
-        const h1s = document.querySelectorAll('h1').length;
-        if (h1s === 0) {
-          results.push({
-            msg: 'No H1 heading found',
-            impact: 'Search engines and screen reader users cannot identify the main topic of the page.',
-            rec: 'Add a single <h1> that summarizes the page content.',
-            sev: p === 'screen-reader' ? 'moderate' : 'low'
+          return { issues: results, totalChecked: totalElements };
+        }, persona);
+
+        a11yChecks.issues.forEach(check => {
+          issues.accessibility.push({
+            type: 'error',
+            message: check.msg,
+            severity: (check.sev as any) || 'moderate',
+            impact: check.impact,
+            recommendation: check.rec,
+            selector: check.selector
           });
-        }
-
-        return { issues: results, totalChecked: totalElements };
-      }, persona);
-
-      a11yChecks.issues.forEach(check => {
-        issues.accessibility.push({
-          type: 'error',
-          message: check.msg,
-          severity: (check.sev as any) || 'moderate',
-          impact: check.impact,
-          recommendation: check.rec,
-          selector: check.selector
         });
-      });
 
-      categoryMetrics.accessibility = {
-        'Elements Checked': a11yChecks.totalChecked,
-        'Accessibility Issues': a11yChecks.issues.length
-      };
+        categoryMetrics.accessibility = {
+          'Elements Checked': a11yChecks.totalChecked,
+          'Accessibility Issues': a11yChecks.issues.length
+        };
+      }
 
       // 4. SEO - New Audit Category (Optional)
       if (includeSeo) {
@@ -790,7 +792,7 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
       links: { score: calculateScore(issues.links, 'links'), status: getStatus(calculateScore(issues.links, 'links')), issues: issues.links, metrics: categoryMetrics.links },
       console: { score: calculateScore(issues.console, 'console'), status: getStatus(calculateScore(issues.console, 'console')), issues: issues.console, metrics: categoryMetrics.console },
       performance: { score: calculateScore(issues.performance, 'performance'), status: getStatus(calculateScore(issues.performance, 'performance')), issues: issues.performance, metrics: categoryMetrics.performance },
-      accessibility: { score: calculateScore(issues.accessibility, 'accessibility'), status: getStatus(calculateScore(issues.accessibility, 'accessibility')), issues: issues.accessibility, metrics: categoryMetrics.accessibility },
+      ...(includeAccessibility ? { accessibility: { score: calculateScore(issues.accessibility, 'accessibility'), status: getStatus(calculateScore(issues.accessibility, 'accessibility')), issues: issues.accessibility, metrics: categoryMetrics.accessibility } } : {}),
       ...(includeSeo ? { seo: { score: calculateScore(issues.seo, 'seo'), status: getStatus(calculateScore(issues.seo, 'seo')), issues: issues.seo, metrics: categoryMetrics.seo } } : {}),
     },
     totalScore: 0
