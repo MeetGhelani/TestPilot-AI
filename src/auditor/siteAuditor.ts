@@ -32,7 +32,7 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
       parsed.username = ''; parsed.password = '';
       cleanUrl = parsed.toString();
     }
-  } catch {}
+  } catch { }
 
   const httpCredentials = (username || password)
     ? { username: username ?? '', password: password ?? '' }
@@ -133,10 +133,29 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
     // Inject script to track CLS
     await page.addInitScript(() => {
       (window as any).clsValue = 0;
+      (window as any).layoutShiftEntries = [];
       new PerformanceObserver((entryList) => {
         for (const entry of entryList.getEntries()) {
           if (!(entry as any).hadRecentInput) {
             (window as any).clsValue += (entry as any).value;
+            (window as any).layoutShiftEntries.push({
+              value: (entry as any).value,
+              sources: (entry as any).sources?.map((s: any) => ({
+                node: s.node,
+                selector: s.node ? (() => {
+                  const el = s.node;
+                  if (el.id) return `#${el.id}`;
+                  let path = [];
+                  let current: Element | null = el;
+                  while (current && current !== document.body) {
+                    let index = Array.from(current.parentElement?.children || []).indexOf(current) + 1;
+                    path.unshift(`${current.tagName.toLowerCase()}:nth-child(${index})`);
+                    current = current.parentElement;
+                  }
+                  return path.join(' > ');
+                })() : null
+              }))
+            });
           }
         }
       }).observe({ type: 'layout-shift', buffered: true });
@@ -148,19 +167,20 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
       // Handle Authentication if requested
       if (auth?.username || auth?.password) {
         try {
-          // Look for login fields
-          const userFields = await page.$$('input[type="text"], input[type="email"], input[name*="user"], input[name*="login"]');
-          const passFields = await page.$$('input[type="password"]');
+          // Use locators to ensure visibility and avoid timeouts on hidden fields
+          const userLocator = page.locator('input[type="text"], input[type="email"], input[name*="user"], input[name*="login"]').filter({ visible: true }).first();
+          const passLocator = page.locator('input[type="password"]').filter({ visible: true }).first();
 
-          if (userFields.length > 0 && passFields.length > 0) {
-            if (auth.username) await userFields[0].fill(auth.username);
-            if (auth.password) await passFields[0].fill(auth.password);
+          if (await userLocator.count() > 0 && await passLocator.count() > 0) {
+            if (auth.username) await userLocator.fill(auth.username, { timeout: 5000 });
+            if (auth.password) await passLocator.fill(auth.password, { timeout: 5000 });
 
-            // Try to find a submit button
-            const submitBtn = await page.$('button[type="submit"], input[type="submit"], button:has-text("Log in"), button:has-text("Sign in")');
-            if (submitBtn) {
-              await submitBtn.click();
-              await page.waitForNavigation({ waitUntil: 'load', timeout: 30000 }).catch(() => { });
+            // Try to find a submit button (visible only)
+            const submitBtn = page.locator('button[type="submit"], input[type="submit"], button:has-text("Log in"), button:has-text("Sign in")').filter({ visible: true }).first();
+            if (await submitBtn.count() > 0) {
+              await submitBtn.click({ timeout: 5000 });
+              // Shorter navigation timeout for auth
+              await page.waitForNavigation({ waitUntil: 'load', timeout: 15000 }).catch(() => { });
             }
           }
         } catch (authErr) {
@@ -176,7 +196,7 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
 
       if (response) {
         siteAccessible = true;
-        
+
         if (response.status() >= 400) {
           issues.functional.push({
             type: response.status() === 404 ? 'warning' : 'error',
@@ -304,55 +324,162 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
         };
       }
 
-      // --- Performance Benchmarking & Scoring Fix ---
+      // --- Performance Benchmarking & Scoring Fix (Enhanced) ---
       const m = categoryMetrics.performance;
       const fcp = perfData.fcp;
       const tbt = perfData.tbt;
       const cls = perfData.cls;
       const nodes = Number(m['DOM Nodes']) || 0;
-      const mem = Number(m['JS Heap Used']) || 0;
       const sizeBytes = perfData.pageSize;
 
-      // FCP Check
+      // --- Collect Detailed Performance Data ---
+      const advancedData = await page.evaluate(() => {
+        const getSelector = (el: Element): string => {
+          if (el.id) return `#${el.id}`;
+          let path = [];
+          let current: Element | null = el;
+          while (current && current !== document.body) {
+            let index = Array.from(current.parentElement?.children || []).indexOf(current) + 1;
+            path.unshift(`${current.tagName.toLowerCase()}:nth-child(${index})`);
+            current = current.parentElement;
+          }
+          return path.join(' > ');
+        };
+
+        const vh = window.innerHeight;
+        const vw = window.innerWidth;
+
+        const imgElements = Array.from(document.querySelectorAll('img'));
+        const aboveTheFoldImages = imgElements
+          .filter(img => {
+            const rect = img.getBoundingClientRect();
+            return rect.top < vh && rect.bottom > 0 && rect.left < vw && rect.right > 0 && rect.width > 20 && rect.height > 20;
+          })
+          .map(img => ({ url: img.src, selector: getSelector(img) }));
+
+        const renderBlockingScripts = Array.from(document.querySelectorAll('head script[src]:not([async]):not([defer])'))
+          .map(s => ({ url: (s as HTMLScriptElement).src, selector: getSelector(s) }));
+
+        const renderBlockingStyles = Array.from(document.querySelectorAll('head link[rel="stylesheet"]'))
+          .map(s => ({ url: (s as HTMLLinkElement).href, selector: getSelector(s) }));
+
+        const topContainers = Array.from(document.body.querySelectorAll('div, section, main, article, nav, header, footer'))
+          .map(el => ({ selector: getSelector(el), count: el.querySelectorAll('*').length }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 3);
+
+        const layoutShifts = (window as any).layoutShiftEntries || [];
+        const shiftSelectors = layoutShifts.flatMap((s: any) => s.sources?.map((src: any) => src.selector)).filter(Boolean);
+
+        return { aboveTheFoldImages, renderBlockingScripts, renderBlockingStyles, topContainers, shiftSelectors };
+      });
+
+      // Helper to find resource size
+      const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(r => ({
+        name: r.name,
+        size: (r as any).transferSize || (r as any).encodedBodySize || 0
+      })));
+
+      const getResSize = (url: string) => resources.find(r => r.name === url)?.size || 0;
+
+      // FCP Check (Enhanced)
       if (fcp > 3000) {
-        issues.performance.push({ type: 'error', message: `FCP is very poor: ${Math.round(fcp)}ms`, severity: 'critical', impact: 'Users perceive the page as slow or broken when it takes this long to show content.', recommendation: 'Optimize server response times and remove render-blocking JS/CSS.' });
+        const largestImg = advancedData.aboveTheFoldImages.sort((a, b) => getResSize(b.url) - getResSize(a.url))[0];
+        issues.performance.push({
+          type: 'error',
+          message: `FCP is very poor: ${Math.round(fcp)}ms`,
+          severity: 'critical',
+          impact: 'Users perceive the page as slow or broken.',
+          recommendation: largestImg ? `Optimize above-the-fold image: ${largestImg.url.split('/').pop()} and remove render-blocking resources.` : 'Optimize server response and remove render-blocking resources.',
+          selector: largestImg?.selector || 'head'
+        });
       } else if (fcp > 1800) {
-        issues.performance.push({ type: 'warning', message: `FCP needs improvement: ${Math.round(fcp)}ms`, severity: 'moderate', impact: 'Slow start can lead to user bounce.', recommendation: 'Reduce CSS/JS size and use font-display: swap.' });
+        const firstStyle = advancedData.renderBlockingStyles[0];
+        issues.performance.push({
+          type: 'warning',
+          message: `FCP needs improvement: ${Math.round(fcp)}ms`,
+          severity: 'moderate',
+          impact: 'Slow start can lead to user bounce.',
+          recommendation: 'Reduce CSS/JS size and use font-display: swap.',
+          selector: firstStyle?.selector || 'head'
+        });
       }
 
-      // TBT Check
+      // TBT Check (Enhanced)
       if (tbt > 600) {
-        issues.performance.push({ type: 'error', message: `High Total Blocking Time: ${Math.round(tbt)}ms`, severity: 'critical', impact: 'The page is unresponsive to user input during loading.', recommendation: 'Split large JS bundles and use Web Workers for heavy tasks.' });
+        const heavyScript = advancedData.renderBlockingScripts[0];
+        issues.performance.push({
+          type: 'error',
+          message: `High Total Blocking Time: ${Math.round(tbt)}ms`,
+          severity: 'critical',
+          impact: 'Page is unresponsive during load.',
+          recommendation: 'Split large JS bundles and use Web Workers.',
+          selector: heavyScript?.selector || 'body'
+        });
       } else if (tbt > 200) {
-        issues.performance.push({ type: 'warning', message: `TBT needs improvement: ${Math.round(tbt)}ms`, severity: 'moderate', impact: 'Input delay can frustrate users.', recommendation: 'Optimize long JS tasks.' });
+        issues.performance.push({
+          type: 'warning',
+          message: `TBT needs improvement: ${Math.round(tbt)}ms`,
+          severity: 'moderate',
+          impact: 'Input delay frustrates users.',
+          recommendation: 'Optimize long JS tasks.',
+          selector: 'body'
+        });
       }
 
-      // DOM Nodes Check
+      // DOM Nodes Check (Enhanced)
       if (nodes > 3000) {
-        issues.performance.push({ type: 'error', message: `Excessive DOM size: ${nodes} nodes`, severity: 'critical', impact: 'A large DOM tree slows down style calculations and interactions.', recommendation: 'Reduce the number of elements; use lazy-loading for off-screen content.' });
+        issues.performance.push({
+          type: 'error',
+          message: `Excessive DOM size: ${nodes} nodes`,
+          severity: 'critical',
+          impact: 'Slows down style calculations and interactions.',
+          recommendation: `Reduce elements in large containers like ${advancedData.topContainers[0]?.selector}.`,
+          selector: advancedData.topContainers[0]?.selector || 'body'
+        });
       } else if (nodes > 1500) {
-        issues.performance.push({ type: 'warning', message: `Large DOM size: ${nodes} nodes`, severity: 'moderate', impact: 'Can impact memory usage and rendering speed.', recommendation: 'Avoid deep nesting and flatten your structure.' });
+        issues.performance.push({
+          type: 'warning',
+          message: `Large DOM size: ${nodes} nodes`,
+          severity: 'moderate',
+          impact: 'Can impact memory usage.',
+          recommendation: 'Avoid deep nesting and flatten structure.',
+          selector: advancedData.topContainers[0]?.selector || 'body'
+        });
       }
 
-      // Memory Check (JS Heap)
-      if (mem > 150 * 1024 * 1024) {
-        issues.performance.push({ type: 'error', message: `High Memory Usage: ${(mem / (1024 * 1024)).toFixed(1)} MB`, severity: 'critical', impact: 'May cause browser crashes or lag on lower-end devices.', recommendation: 'Check for memory leaks and optimize large data structures.' });
-      }
-
-      // Page Size Check
+      // Page Size Check (Enhanced)
       if (sizeBytes > 5 * 1024 * 1024) {
-        issues.performance.push({ type: 'error', message: `Very Large Page: ${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`, severity: 'critical', impact: 'High data usage and slow load times on mobile.', recommendation: 'Compress images, use modern formats (WebP), and minify assets.' });
+        issues.performance.push({
+          type: 'error',
+          message: `Very Large Page: ${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
+          severity: 'critical',
+          impact: 'High data usage and slow load times.',
+          recommendation: 'Compress images and use modern formats (WebP).',
+          selector: 'body'
+        });
       } else if (sizeBytes > 2 * 1024 * 1024) {
-        issues.performance.push({ type: 'warning', message: `Large Page: ${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`, severity: 'moderate', impact: 'Slower experience for mobile users.', recommendation: 'Optimize resources and use Gzip/Brotli compression.' });
+        issues.performance.push({
+          type: 'warning',
+          message: `Large Page: ${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
+          severity: 'moderate',
+          impact: 'Slower experience on mobile.',
+          recommendation: 'Optimize resources and use Gzip/Brotli.',
+          selector: 'body'
+        });
       }
 
-      // CLS Check
-      if (persona === 'low-vision' && cls > 0.05) {
-        issues.performance.push({ type: 'warning', message: `Layout Shift (CLS) detected: ${cls.toFixed(3)}`, severity: 'critical', impact: 'Disorienting for users with low vision.', recommendation: 'Reserve space for containers.' });
-      } else if (cls > 0.25) {
-        issues.performance.push({ type: 'error', message: `Poor CLS: ${cls.toFixed(3)}`, severity: 'critical', impact: 'Unstable layout causes misclicks.', recommendation: 'Set explicit dimensions for images.' });
-      } else if (cls > 0.1) {
-        issues.performance.push({ type: 'warning', message: `CLS needs improvement: ${cls.toFixed(3)}`, severity: 'moderate', impact: 'Minor layout shifts during load.', recommendation: 'Add width/height to images.', selector: 'img:not([width]):not([height])' });
+      // CLS Check (Enhanced)
+      if (cls > 0.1) {
+        const targetSelector = advancedData.shiftSelectors[0] || 'body';
+        issues.performance.push({
+          type: cls > 0.25 ? 'error' : 'warning',
+          message: `${cls > 0.25 ? 'Poor' : 'Improve'} CLS: ${cls.toFixed(3)}`,
+          severity: cls > 0.25 ? 'critical' : 'moderate',
+          impact: 'Layout shifts cause user frustration and misclicks.',
+          recommendation: 'Set explicit dimensions for images and containers.',
+          selector: targetSelector
+        });
       }
 
       // 2. Broken Links

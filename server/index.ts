@@ -346,17 +346,20 @@ app.post('/api/audit/highlight', async (req, res) => {
       // Wait a bit for scroll to finish
       setTimeout(() => {
         const rect = el.getBoundingClientRect();
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
         const highlight = document.createElement('div');
         highlight.id = 'ai-test-highlight';
-        highlight.style.position = 'fixed';
+        highlight.style.position = 'absolute';
         highlight.style.border = '4px solid #f87171';
         highlight.style.background = 'rgba(248, 113, 113, 0.2)';
         highlight.style.zIndex = '1000000';
         highlight.style.pointerEvents = 'none';
         highlight.style.boxShadow = '0 0 30px rgba(248, 113, 113, 0.5)';
         highlight.style.borderRadius = '6px';
-        highlight.style.top = rect.top + 'px';
-        highlight.style.left = rect.left + 'px';
+        highlight.style.top = (rect.top + scrollTop) + 'px';
+        highlight.style.left = (rect.left + scrollLeft) + 'px';
         highlight.style.width = rect.width + 'px';
         highlight.style.height = rect.height + 'px';
 

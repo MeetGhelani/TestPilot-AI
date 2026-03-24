@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
-import TestForm from './components/TestForm'
 import SmartSuggester from './components/SmartSuggester'
 import RecordReplay from './components/RecordReplay'
-import ResultPanel from './components/ResultPanel'
 import HistoryPanel from './components/HistoryPanel'
 import AuditPanel from './components/AuditPanel'
 
@@ -30,7 +28,7 @@ export interface TestResult {
 export interface AuditCategory {
   score: number
   status: string
-  issues: { type: string, message: string, impact?: string, recommendation?: string }[]
+  issues: { type: string, message: string, impact?: string, recommendation?: string, selector?: string }[]
   metrics?: Record<string, string | number>
 }
 
@@ -55,20 +53,17 @@ export interface AuditResult {
 
 export type HistoryItem = TestResult | AuditResult
 
-type TabId = 'run' | 'history' | 'scan' | 'record' | 'suggest' | 'audit'
+type TabId = 'history' | 'record' | 'suggest' | 'audit'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>(
-    () => (localStorage.getItem('activeTab') as TabId) ?? 'run'
+    () => (localStorage.getItem('activeTab') as TabId) ?? 'audit'
   )
-  const [result, setResult] = useState<TestResult | null>(null)
-  const [running, setRunning] = useState(false)
   const [history, setHistory] = useState<HistoryItem[]>([])
-  // Global busy flag — lifted from child sections
   const [globalBusy, setGlobalBusy] = useState(false)
 
   const switchTab = (tab: TabId) => {
-    if (globalBusy) return  // block tab switch while anything is running
+    if (globalBusy) return
     setActiveTab(tab)
     localStorage.setItem('activeTab', tab)
   }
@@ -82,28 +77,6 @@ export default function App() {
 
   useEffect(() => { fetchHistory() }, [])
   useEffect(() => { if (activeTab === 'history') fetchHistory() }, [activeTab])
-
-  // Sync run-test busy state with globalBusy
-  useEffect(() => { setGlobalBusy(running) }, [running])
-
-  const handleRun = async (platform: Platform, url: string, test: string, headless: boolean, authUser?: string, authPass?: string) => {
-    setRunning(true)
-    setResult(null)
-    try {
-      const res = await fetch('http://localhost:3001/api/run-test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform, url, test, headless, authUser, authPass }),
-      })
-      const data: TestResult = await res.json()
-      setResult(data)
-      fetchHistory()
-    } catch (err) {
-      setResult({ plan: { title: 'Error', platform, naturalLanguageInput: test, steps: [] }, status: 'error', stepResults: [], totalDurationMs: 0, startedAt: new Date().toISOString(), error: String(err) })
-    } finally {
-      setRunning(false)
-    }
-  }
 
   const handleClearHistory = async () => {
     await fetch('http://localhost:3001/api/history', { method: 'DELETE' })
@@ -125,10 +98,8 @@ export default function App() {
   }
 
   const TAB_LABELS: Record<TabId, string> = {
-    run: 'Run test',
     record: 'Record & replay',
     suggest: 'Suggest tests',
-    scan: 'Scan site',
     audit: 'Site Audit',
     history: `History${history.length > 0 ? ` (${history.length})` : ''}`,
   }
@@ -152,7 +123,7 @@ export default function App() {
             </div>
           )}
 
-          {(['run', 'record', 'suggest', 'audit', 'history'] as TabId[]).map(tab => (
+          {(['record', 'suggest', 'audit', 'history'] as TabId[]).map(tab => (
             <button
               key={tab}
               onClick={() => switchTab(tab)}
@@ -186,15 +157,6 @@ export default function App() {
           <div style={{ flex: 1, padding: 28, overflowY: 'auto' }}>
             <SmartSuggester onBusyChange={setGlobalBusy} />
           </div>
-        ) : activeTab === 'run' ? (
-          <>
-            <div style={{ width: 400, borderRight: '1px solid var(--border)', padding: 28, flexShrink: 0 }}>
-              <TestForm onRun={handleRun} running={running} />
-            </div>
-            <div style={{ flex: 1, padding: 28, overflowY: 'auto' }}>
-              <ResultPanel result={result} running={running} />
-            </div>
-          </>
         ) : activeTab === 'audit' ? (
           <div style={{ flex: 1, padding: 28, overflowY: 'auto' }}>
             <AuditPanel onBusyChange={setGlobalBusy} />
