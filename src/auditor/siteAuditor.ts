@@ -563,78 +563,127 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
       };
 
       if (includeAccessibility) {
-        // 3. Accessibility - Tailored per Persona
-        const a11yChecks = await page.evaluate((p) => {
-          const results: { msg: string, impact: string, rec: string, sev: string, selector?: string }[] = [];
-          const totalElements = document.querySelectorAll('*').length;
+        // 3. Advanced Accessibility Audit (axe-core + custom)
+        try {
+          // A. Inject axe-core via CDN for portability
+          await page.addScriptTag({ url: 'https://cdn.jsdelivr.net/npm/axe-core@4.9.1/axe.min.js' });
 
-          const getSelector = (el: Element): string => {
-            if (el.id) return `#${el.id}`;
-            if (el === document.body) return 'body';
-
-            let path = [];
-            while (el.parentElement) {
-              let index = Array.from(el.parentElement.children).filter(c => c.tagName === el.tagName).indexOf(el) + 1;
-              path.unshift(`${el.tagName.toLowerCase()}:nth-of-type(${index})`);
-              el = el.parentElement;
-            }
-            return path.join(' > ');
-          };
-
-          // 1. Image Check (Critical for Screen Readers)
-          document.querySelectorAll('img:not([alt])').forEach(img => {
-            results.push({
-              msg: `Image missing alt text: ${img.getAttribute('src')?.split('/').pop()}`,
-              impact: p === 'screen-reader' ? 'CRITICAL: Screen reader users have no idea what this image represents.' : 'Vision-impaired users using screen readers will have no idea what this image is.',
-              rec: 'Add an alt="..." attribute describing the image content.',
-              sev: p === 'screen-reader' ? 'critical' : 'moderate',
-              selector: getSelector(img)
+          // B. Run AXE
+          const axeResults = await page.evaluate(() => {
+            return (window as any).axe.run({
+              runOnly: {
+                type: 'tag',
+                values: ['wcag2a', 'wcag2aa', 'best-practice']
+              }
             });
           });
 
-          // 2. Input Labels (Critical for Screen Readers & Keyboard users)
-          document.querySelectorAll('input:not([aria-label]):not([aria-labelledby])').forEach(input => {
-            const id = input.id;
-            if (!id || !document.querySelector(`label[for="${id}"]`)) {
-              results.push({
-                msg: `Form input missing label: "${(input as any).name || input.className}"`,
-                impact: 'Screen readers and keyboard users cannot easily identify what this input is for.',
-                rec: 'Add a <label> linked via the "for" attribute, or an aria-label.',
-                sev: (p === 'screen-reader' || p === 'keyboard-only') ? 'critical' : 'moderate',
-                selector: getSelector(input)
-              });
-            }
+          const axeViolations = axeResults.violations || [];
+          
+          // C. Custom Headings Check (Hierarchy)
+          const headingAudit = await page.evaluate(() => {
+            const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+            const results: any[] = [];
+            let lastLevel = 0;
+
+            headings.forEach((h) => {
+              const level = parseInt(h.tagName[1]);
+              if (lastLevel > 0 && level > lastLevel + 1) {
+                results.push({
+                  message: `Skipped heading level: ${h.tagName} follows H${lastLevel}`,
+                  selector: h.tagName.toLowerCase(), // Simple selector for now
+                  impact: 'Users using screen readers to navigate via headings may get confused by the non-sequential structure.',
+                  recommendation: `Change ${h.tagName} to H${lastLevel + 1} to maintain hierarchy.`,
+                  severity: 'moderate',
+                  category: 'Structure & Semantics'
+                });
+              }
+              lastLevel = level;
+            });
+            return results;
           });
 
-          // 3. Headings (Important for Screen Reader navigation)
-          const h1s = document.querySelectorAll('h1').length;
-          if (h1s === 0) {
-            results.push({
-              msg: 'No H1 heading found',
-              impact: 'Search engines and screen reader users cannot identify the main topic of the page.',
-              rec: 'Add a single <h1> that summarizes the page content.',
-              sev: p === 'screen-reader' ? 'moderate' : 'low'
+          // D. Keyboard Navigation Simulation (Tab Tracking)
+          const keyboardAudit = await page.evaluate(async () => {
+            const results: any[] = [];
+            const interactive = Array.from(document.querySelectorAll('button, a, input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+                                    .filter(el => {
+                                      const style = window.getComputedStyle(el);
+                                      return style.display !== 'none' && style.visibility !== 'hidden' && (el as any).offsetWidth > 0;
+                                    });
+            
+            // Check for focus visibility on a sample
+            for (let i = 0; i < Math.min(5, interactive.length); i++) {
+              (interactive[i] as HTMLElement).focus();
+              const style = window.getComputedStyle(interactive[i]);
+              const hasOutline = style.outlineStyle !== 'none' && parseInt(style.outlineWidth) > 0;
+              const hasBoxShadow = style.boxShadow !== 'none';
+              
+              if (!hasOutline && !hasBoxShadow) {
+                results.push({
+                  message: `Focus indicator not visible on interactive element`,
+                  selector: interactive[i].tagName.toLowerCase(),
+                  impact: 'Keyboard-only users won\'t know which element currently has focus.',
+                  recommendation: 'Add a visible :focus state in your CSS (e.g., outline or box-shadow).',
+                  severity: 'high',
+                  category: 'Keyboard Accessibility'
+                });
+                break; // Just report once for the page
+              }
+            }
+            return results;
+          });
+
+          // E. Process all issues
+          const allA11yIssues = [
+            ...axeViolations.map((v: any) => ({
+              message: v.help,
+              severity: v.impact === 'critical' ? 'critical' : v.impact === 'serious' ? 'high' : 'moderate',
+              impact: v.description,
+              recommendation: v.helpUrl,
+              category: v.tags.includes('color') ? 'Color & Contrast' : 
+                        v.tags.includes('aria') ? 'ARIA & Screen Readers' :
+                        v.tags.includes('language') ? 'Text & Labels' : 'Structure & Semantics',
+              helpUrl: v.helpUrl,
+              fix: v.nodes[0]?.failureSummary,
+              selector: v.nodes[0]?.target[0]
+            })),
+            ...headingAudit,
+            ...keyboardAudit
+          ];
+
+          for (const issue of allA11yIssues) {
+            // Optional: Capture a small screenshot for each issue if selector is present
+            // For now we just push them to the issues list
+            issues.accessibility.push({
+              type: 'error',
+              message: issue.message,
+              severity: issue.severity as any,
+              impact: issue.impact,
+              recommendation: issue.recommendation,
+              selector: issue.selector,
+              category: issue.category,
+              helpUrl: issue.helpUrl,
+              fix: issue.fix
             });
           }
 
-          return { issues: results, totalChecked: totalElements };
-        }, persona);
+          categoryMetrics.accessibility = {
+            'Rules Checked': axeResults.passes.length + axeResults.violations.length,
+            'Axe Violations': axeViolations.length,
+            'Critical Issues': axeViolations.filter((v: any) => v.impact === 'critical').length,
+            'Keyboard Score': keyboardAudit.length === 0 ? 'Passed' : 'Needs Fix'
+          };
 
-        a11yChecks.issues.forEach(check => {
+        } catch (a11yErr: any) {
           issues.accessibility.push({
-            type: 'error',
-            message: check.msg,
-            severity: (check.sev as any) || 'moderate',
-            impact: check.impact,
-            recommendation: check.rec,
-            selector: check.selector
+            type: 'warning',
+            message: `Accessibility Audit Interrupted: ${a11yErr.message}`,
+            severity: 'moderate',
+            impact: 'Complete accessibility metrics could not be gathered.',
+            recommendation: 'Ensure the page is stable and axe-core is reachable via CDN.'
           });
-        });
-
-        categoryMetrics.accessibility = {
-          'Elements Checked': a11yChecks.totalChecked,
-          'Accessibility Issues': a11yChecks.issues.length
-        };
+        }
       }
 
       // 4. SEO - New Audit Category (Optional)
@@ -925,10 +974,20 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
     totalScore: 0
   };
 
+  // Robust scoring: Average of all present categories
+  const scores: number[] = [
+    result.categories.functional.score,
+    result.categories.ui.score,
+    result.categories.links.score,
+    result.categories.console.score,
+    result.categories.performance.score
+  ];
+  
+  if (result.categories.accessibility) scores.push(result.categories.accessibility.score);
+  if (result.categories.seo) scores.push(result.categories.seo.score);
+
   result.totalScore = Math.round(
-    Object.entries(result.categories)
-      .filter(([key]) => includeSeo || key !== 'seo')
-      .reduce((acc, [_, cat]) => acc + cat.score, 0) / (includeSeo ? 7 : 6)
+    scores.reduce((acc, s) => acc + s, 0) / scores.length
   );
 
   return {

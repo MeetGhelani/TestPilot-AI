@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import type { AuditResult, AuditCategory, AuditIssue, AuditPersona } from '../../../src/types/index'
+import AuditComparison from './AuditComparison'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -45,7 +46,41 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
   // Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<{ type: 'delete' | 'clear-all' | 'delete-selected', id?: string } | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [isComparing, setIsComparing] = useState(false)
   const [selectedForDeletion, setSelectedForDeletion] = useState<Set<string>>(new Set())
+  const [selectedForComparison, setSelectedForComparison] = useState<Set<string>>(new Set())
+  const [comparisonResult, setComparisonResult] = useState<any>(null)
+  const [showComparison, setShowComparison] = useState(false)
+  const [showA11yDetails, setShowA11yDetails] = useState(false)
+  const a11yRef = useRef<HTMLDivElement>(null)
+
+  // Persist Comparison Logic
+  useEffect(() => {
+    const saved = localStorage.getItem('site-audit-comparison-ids');
+    if (saved) {
+      const ids = JSON.parse(saved);
+      if (ids && ids.length >= 2) {
+        setSelectedForComparison(new Set(ids));
+        // We need to wait for history to be loaded to find them, or just call the compare API directly
+        fetch('http://localhost:3001/api/audit/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids })
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (!data.error) {
+              setComparisonResult(data);
+              setShowComparison(true);
+              setResult(null);
+            } else {
+              localStorage.removeItem('site-audit-comparison-ids');
+            }
+          })
+          .catch(() => localStorage.removeItem('site-audit-comparison-ids'));
+      }
+    }
+  }, []);
 
   const fetchAudits = async () => {
     try {
@@ -106,6 +141,29 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
     if (result?.id === id) setResult(null)
     setConfirmModal(null)
   }
+
+  const handleCompare = async () => {
+    if (selectedForComparison.size < 2) return;
+    onBusyChange(true);
+    try {
+      const res = await fetch('http://localhost:3001/api/audit/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedForComparison) })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setComparisonResult(data);
+      setShowComparison(true);
+      setResult(null); // Clear single result view
+      setIsComparing(false); // Exit selection mode
+      localStorage.setItem('site-audit-comparison-ids', JSON.stringify(Array.from(selectedForComparison)));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      onBusyChange(false);
+    }
+  };
 
   const handleDeleteMultipleAudits = async (ids: string[]) => {
     await fetch(`http://localhost:3001/api/audits/delete-bulk`, {
@@ -336,7 +394,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
     );
   };
 
-  const CategoryCard = ({ title, cat, icon }: { title: string, cat: AuditCategory, icon: string }) => (
+  const CategoryCard = ({ title, cat, icon, onViewDetails }: { title: string, cat: AuditCategory, icon: string, onViewDetails?: () => void }) => (
     <div style={{
       background: 'var(--surface)',
       border: '1px solid var(--border)',
@@ -412,13 +470,28 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
           </div>
         )}
 
-        <div style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px' }}>
-          <span style={{ color: cat.status === 'passed' ? '#4ade80' : cat.status === 'warning' ? '#fbbf24' : '#f87171', fontSize: 16 }}>
-            {cat.status === 'passed' ? '✓' : '●'}
-          </span>
-          <span style={{ color: 'var(--text2)', fontWeight: 500 }}>
-            {cat.score === 100 ? 'Perfectly optimized' : cat.issues.length === 0 ? 'No issues found' : `${cat.issues.length} ${cat.issues.length === 1 ? 'issue' : 'issues'} detected`}
-          </span>
+        {title === 'Accessibility' && (
+          <div style={{ display: 'flex', gap: 8, marginTop: -4, marginBottom: 12, fontSize: 12, fontWeight: 600 }}>
+            <span style={{ color: '#f87171' }}>Critical: {cat.issues.filter(i => i.severity === 'critical').length}</span>
+            <span style={{ color: '#fbbf24' }}>| Major: {cat.issues.filter(i => i.severity === 'high').length}</span>
+            <span style={{ color: 'var(--text3)' }}>| Minor: {cat.issues.filter(i => i.severity === 'moderate' || i.severity === 'low').length}</span>
+          </div>
+        )}
+
+        <div style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: cat.status === 'passed' ? '#4ade80' : cat.status === 'warning' ? '#fbbf24' : '#f87171', fontSize: 16 }}>
+              {cat.status === 'passed' ? '✓' : '●'}
+            </span>
+            <span style={{ color: 'var(--text2)', fontWeight: 500 }}>
+              {cat.score === 100 ? 'Perfectly optimized' : cat.issues.length === 0 ? 'No issues found' : `${cat.issues.length} ${cat.issues.length === 1 ? 'issue' : 'issues'} detected`}
+            </span>
+          </div>
+          {onViewDetails && (
+            <button onClick={onViewDetails} style={{ background: 'transparent', border: '1px solid var(--accent)', borderRadius: '5px', color: 'var(--accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '5px 10px' }}>
+              View Details →
+            </button>
+          )}
         </div>
         {title === 'Performance' && cat.metrics && <PerformanceCharts metrics={cat.metrics} />}
       </div>
@@ -576,7 +649,24 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
             <h3 style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text1)', textTransform: 'uppercase', letterSpacing: 1.5, margin: 0 }}>Recent Audits</h3>
             <div style={{ display: 'flex', gap: 8 }}>
-              {isEditing ? (
+              {isComparing ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setIsComparing(false);
+                      setSelectedForComparison(new Set());
+                    }}
+                    style={{ background: 'none', border: '1px solid var(--text2)', borderRadius: 6, padding: '4px 12px', color: 'var(--text2)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1 }}>
+                    CANCEL
+                  </button>
+                  <button
+                    onClick={handleCompare}
+                    disabled={selectedForComparison.size < 2}
+                    style={{ background: selectedForComparison.size >= 2 ? '#71d9f822' : 'none', border: `1px solid ${selectedForComparison.size >= 2 ? '#38bdf8' : 'var(--border)'}`, borderRadius: 6, padding: '4px 12px', color: selectedForComparison.size >= 2 ? '#38bdf8' : 'var(--text3)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: selectedForComparison.size < 2 ? 'not-allowed' : 'pointer', letterSpacing: 1, fontWeight: selectedForComparison.size >= 2 ? 700 : 400 }}>
+                    COMPARE ({selectedForComparison.size})
+                  </button>
+                </>
+              ) : isEditing ? (
                 <>
                   <button
                     onClick={() => {
@@ -595,6 +685,15 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                 </>
               ) : (
                 <>
+                  <button
+                    onClick={() => {
+                      setIsComparing(true);
+                      setIsEditing(false);
+                      setShowComparison(false);
+                    }}
+                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--info)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1 }}>
+                    COMPARE
+                  </button>
                   <button
                     onClick={() => setIsEditing(true)}
                     disabled={history.length === 0}
@@ -625,8 +724,17 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                         if (newSet.has(item.id)) newSet.delete(item.id); else newSet.add(item.id);
                         setSelectedForDeletion(newSet);
                       }
+                    } else if (isComparing) {
+                      if (item.id) {
+                        const newSet = new Set(selectedForComparison);
+                        if (newSet.has(item.id)) newSet.delete(item.id); else newSet.add(item.id);
+                        setSelectedForComparison(newSet);
+                      }
                     } else {
                       setResult(item);
+                      setShowComparison(false);
+                      localStorage.removeItem('site-audit-comparison-ids');
+                      setSelectedForComparison(new Set());
                       if (item.comparisons) {
                         setSelectedComparisonId('desktop');
                       } else {
@@ -637,8 +745,13 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    background: result?.id === item.id && !isEditing ? 'var(--surface2)' : 'rgba(255,255,255,0.02)',
-                    border: `2px solid ${isEditing ? (item.id && selectedForDeletion.has(item.id) ? 'var(--fail)' : 'var(--border2)') : (result?.id === item.id ? 'var(--accent)' : 'var(--border2)')}`,
+                    background: isEditing ? 'rgba(255,255,255,0.02)' : isComparing ? (item.id && selectedForComparison.has(item.id) ? 'rgba(56, 189, 248, 0.08)' : 'rgba(255,255,255,0.02)') : (result?.id === item.id ? 'var(--surface2)' : 'rgba(255,255,255,0.02)'),
+                    border: `2px solid ${isEditing
+                      ? (item.id && selectedForDeletion.has(item.id) ? 'var(--fail)' : 'var(--border2)')
+                      : isComparing
+                        ? (item.id && selectedForComparison.has(item.id) ? 'var(--info)' : 'var(--border2)')
+                        : (result?.id === item.id ? 'var(--accent)' : 'var(--border2)')
+                      }`,
                     borderRadius: 14,
                     cursor: 'pointer',
                     transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -653,7 +766,14 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                     }
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = isEditing ? (item.id && selectedForDeletion.has(item.id) ? 'var(--fail)' : 'var(--border2)') : (result?.id === item.id ? 'var(--accent)' : 'var(--border2)');
+                    const id = item.id;
+                    if (isEditing) {
+                      e.currentTarget.style.borderColor = id && selectedForDeletion.has(id) ? 'var(--fail)' : 'var(--border2)';
+                    } else if (isComparing) {
+                      e.currentTarget.style.borderColor = id && selectedForComparison.has(id) ? 'var(--info)' : 'var(--border2)';
+                    } else {
+                      e.currentTarget.style.borderColor = result?.id === id ? 'var(--accent)' : 'var(--border2)';
+                    }
                   }}
                 >
                   {/* Left Score Block - Boldly colored block like the mockup */}
@@ -664,12 +784,13 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: getScoreColor(item.totalScore),
+                    background: isEditing ? 'var(--text3)' : getScoreColor(item.totalScore),
                     borderRight: '2px solid rgba(0,0,0,0.1)',
                     color: '#141414ff',
                     fontWeight: 900,
                     fontSize: 22,
-                    fontFamily: 'var(--font-mono)'
+                    fontFamily: 'var(--font-mono)',
+                    opacity: isEditing ? 0.3 : 1
                   }}>
                     {item.totalScore}
                   </div>
@@ -702,21 +823,22 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                     </div>
                   </div>
 
-                  {/* Right Action Area - Fixed width for the delete button */}
+                  {/* Right Action Area - Fixed width for checkboxes */}
                   <div style={{ width: 44, flexShrink: 0, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {isEditing && item.id && (
+                    {(isEditing || isComparing) && item.id && (
                       <div style={{
                         width: 18,
                         height: 18,
                         borderRadius: 4,
-                        border: `2px solid ${selectedForDeletion.has(item.id) ? 'var(--fail)' : 'var(--border2)'}`,
-                        background: selectedForDeletion.has(item.id) ? 'var(--fail)' : 'transparent',
+                        border: `2px solid ${isEditing ? (selectedForDeletion.has(item.id) ? 'var(--fail)' : 'var(--border2)') : (selectedForComparison.has(item.id) ? 'var(--info)' : 'var(--border2)')}`,
+                        background: isEditing ? (selectedForDeletion.has(item.id) ? 'var(--fail)' : 'transparent') : (selectedForComparison.has(item.id) ? 'var(--info)' : 'transparent'),
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
+                        boxShadow: (isEditing && selectedForDeletion.has(item.id)) || (isComparing && selectedForComparison.has(item.id)) ? `0 0 10px ${isEditing ? 'var(--fail)' : 'var(--info)'}44` : 'none'
                       }}>
-                        {selectedForDeletion.has(item.id) && <span style={{ color: '#000', fontSize: 12, fontWeight: 800 }}>✓</span>}
+                        {(selectedForDeletion.has(item.id) || selectedForComparison.has(item.id)) && <span style={{ color: '#000', fontSize: 12, fontWeight: 800 }}>✓</span>}
                       </div>
                     )}
                   </div>
@@ -880,7 +1002,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                   <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 500 }}>Compare across devices (Desktop, Mobile, Low-end Mobile)</span>
                 </div>
 
-                
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div onClick={() => setIncludeSeo(!includeSeo)} style={{ width: 36, height: 20, flexShrink: 0, borderRadius: 10, background: includeSeo ? 'var(--accent)' : 'var(--surface2)', border: '1px solid var(--border2)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
                     <div style={{ position: 'absolute', top: 2, left: includeSeo ? 17 : 2, width: 14, height: 14, borderRadius: '50%', background: includeSeo ? '#0f0f0f' : 'var(--text3)', transition: 'left 0.2s' }} />
@@ -977,7 +1099,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
               borderRadius: '50%',
               marginBottom: 24,
               boxShadow: '0 0 30px rgba(189, 224, 105, 1)',
-              
+
             }} />
             <div style={{ textAlign: 'center' }}>
               <div style={{ color: 'var(--accent)', fontSize: 14, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8, fontFamily: 'var(--font-mono)' }}>Deep Analysis in Progress</div>
@@ -987,7 +1109,15 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
           </div>
         )}
 
-        {result && !running && (() => {
+        {showComparison && comparisonResult && !running && (
+          <AuditComparison data={comparisonResult} onBack={() => {
+            setShowComparison(false);
+            localStorage.removeItem('site-audit-comparison-ids');
+            setSelectedForComparison(new Set());
+          }} />
+        )}
+
+        {result && !running && !showComparison && (() => {
           const displayResult = (result.comparisons && selectedComparisonId)
             ? result.comparisons[selectedComparisonId]
             : result;
@@ -1063,14 +1193,104 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                 <CategoryCard title="Console & Errors" icon="📟" cat={displayResult.categories.console} />
                 <CategoryCard title="Performance" icon="⚡" cat={displayResult.categories.performance} />
                 {displayResult.categories.accessibility && (
-                  <CategoryCard title="Accessibility" icon="♿" cat={displayResult.categories.accessibility!} />
+                  <CategoryCard title="Accessibility" icon="♿" cat={displayResult.categories.accessibility!} onViewDetails={() => {
+                    setShowA11yDetails(true);
+                    setTimeout(() => {
+                      if (a11yRef.current) {
+                        const y = a11yRef.current.getBoundingClientRect().top + window.scrollY - 100;
+                        window.scrollTo({ top: y, behavior: 'smooth' });
+                      }
+                    }, 50);
+                  }} />
                 )}
                 {displayResult.categories.seo && (
                   <CategoryCard title="Search & SEO" icon="🔍" cat={displayResult.categories.seo!} />
                 )}
               </div>
 
+              {showA11yDetails && displayResult.categories.accessibility && (
+                <div ref={a11yRef} style={{ background: '#09090b', padding: 32, borderRadius: 24, border: '1px solid var(--accent)', boxShadow: '0 0 40px rgba(200, 240, 105, 0.1)', animation: 'fadeIn 0.4s ease-out' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid #222' }}>
+                    <h2 style={{ fontSize: 24, color: 'var(--text)', fontWeight: 700, margin: 0 }}>♿ Accessibility Audit Details</h2>
+                    <button onClick={() => setShowA11yDetails(false)} style={{ background: 'transparent', border: '1px solid var(--fail)', color: 'var(--fail)', padding: '6px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 12 }}>COLLAPSE ✕</button>
+                  </div>
+
+                  {/* Categorized Issues */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                    {Object.entries(
+                      displayResult.categories.accessibility.issues.reduce((acc: any, issue: any) => {
+                        const cat = issue.category || 'Other Issues';
+                        if (!acc[cat]) acc[cat] = [];
+                        acc[cat].push(issue);
+                        return acc;
+                      }, {})
+                    ).map(([categoryName, issues]: any) => (
+                      <div key={categoryName} style={{ background: '#111', borderRadius: 16, border: '1px solid #222', overflow: 'hidden' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px 20px', borderBottom: '1px solid #222', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <h4 style={{ fontSize: 16, color: 'var(--text)', margin: 0, fontWeight: 600 }}>{categoryName}</h4>
+                          <span style={{ fontSize: 12, background: '#222', padding: '4px 10px', borderRadius: 12, color: 'var(--text2)', fontWeight: 600 }}>{issues.length} {issues.length === 1 ? 'Issue' : 'Issues'}</span>
+                        </div>
+                        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                          {issues.map((issue: any, i: number) => (
+                            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: i !== issues.length - 1 ? 16 : 0, borderBottom: i !== issues.length - 1 ? '1px dashed #333' : 'none' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                                  <span style={{ color: issue.severity === 'critical' ? '#f87171' : issue.severity === 'high' ? '#fbbf24' : 'var(--text2)', fontSize: 18, marginTop: -2 }}>
+                                    {issue.severity === 'critical' ? '⊗' : '⚠'}
+                                  </span>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    <span style={{ color: 'var(--text)', fontWeight: 600, fontSize: 15 }}>{issue.message}</span>
+                                    {issue.impact && <span style={{ color: 'var(--text2)', fontSize: 13, lineHeight: 1.5 }}>{issue.impact}</span>}
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                  <span style={{ fontSize: 10, padding: '4px 8px', background: issue.severity === 'critical' ? '#411' : issue.severity === 'high' ? 'rgba(251, 191, 36, 0.1)' : '#222', color: issue.severity === 'critical' ? '#f87171' : issue.severity === 'high' ? '#fbbf24' : 'var(--text2)', borderRadius: 6, textTransform: 'uppercase', fontWeight: 800, border: `1px solid ${issue.severity === 'critical' ? '#f8717144' : issue.severity === 'high' ? '#fbbf2444' : '#333'}` }}>
+                                    {issue.severity}
+                                  </span>
+                                  {issue.helpUrl && (
+                                    <a href={issue.helpUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#38bdf8', textDecoration: 'none', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '2px 8px', borderRadius: 4, fontWeight: 600, background: 'rgba(56, 189, 248, 0.05)' }}>WCAG Info ↗</a>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Element Selector & Split View Code Fix section */}
+                              {(issue.selector || issue.fix) && (
+                                <div style={{ marginTop: 8, marginLeft: 30, display: 'flex', gap: 16 }}>
+                                  {issue.selector && (
+                                    <div style={{ flex: 1, background: '#0a0a0a', border: '1px solid #222', borderRadius: 8, padding: 12 }}>
+                                      <div style={{ fontSize: 10, color: 'var(--accent)',letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        Target Element
+                                        <button onClick={() => handleHighlight(issue.selector, issue.message)} style={{ background: 'transparent', border: '1px solid #f87171', color: '#f87171', fontSize: 10, cursor: 'pointer', padding: 5, borderRadius: 5, backgroundColor: '#f8717117' }}>Highlight</button>
+                                      </div>
+                                      <code style={{ fontSize: 11, color: '#fff', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{issue.selector}</code>
+                                    </div>
+                                  )}
+                                  {issue.fix && (
+                                    <div style={{ flex: 1, background: 'rgba(200, 240, 105, 0.03)', border: '1px solid rgba(200, 240, 105, 0.15)', borderRadius: 8, padding: 12 }}>
+                                      <div style={{ fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 6, fontWeight: 600, letterSpacing: '1px' }}>Suggested Fix</div>
+                                      <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>{issue.fix}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* General Recommendation Fallback */}
+                              {!issue.fix && issue.recommendation && issue.recommendation !== issue.helpUrl && (
+                                <div style={{ marginLeft: 30, background: 'rgba(200,240,105,0.05)', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(200,240,105,0.1)' }}>
+                                  <span style={{ color: 'var(--text)', fontSize: 13, lineHeight: 1.5 }}>{issue.recommendation}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
                 <h3 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', borderLeft: '4px solid var(--accent)', paddingLeft: 16 }}>Detailed Observations</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {Object.entries(displayResult.categories).map(([key, cat]) => (

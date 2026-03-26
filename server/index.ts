@@ -16,10 +16,10 @@ import {
   deleteRecording,
 } from '../src/recorder/testRecorder';
 import type { ScanSummary } from '../src/suggester/testSuggester';
-import type { TestPlan, AuditResult } from '../src/types/index';
+import type { TestPlan, AuditResult, AuditIssue } from '../src/types/index';
 import { runFullAudit } from '../src/auditor/siteAuditor';
 import { deviceProfiles } from '../src/auditor/deviceProfiles';
-import { generateReportHtml } from './reportTemplate';
+import { generateReportHtml, generateComparisonReportHtml } from './reportTemplate';
 
 const app = express();
 const PORT = 3001;
@@ -270,6 +270,92 @@ app.post('/api/audit', async (req, res) => {
   }
 });
 
+// Comparison Logic Helpers
+function compareIssues(oldIssues: AuditIssue[], newIssues: AuditIssue[]) {
+  const matchedNew = new Set<AuditIssue>();
+  const fixed: AuditIssue[] = [];
+  const persistent: AuditIssue[] = [];
+  const added: AuditIssue[] = [];
+
+  const getHash = (i: AuditIssue) => `${i.type}|${i.message}|${i.selector || ''}`;
+  const oldHashes = new Map(oldIssues.map(i => [getHash(i), i]));
+
+  newIssues.forEach(i => {
+    const hash = getHash(i);
+    if (oldHashes.has(hash)) {
+      persistent.push(i);
+      matchedNew.add(i);
+    } else {
+      added.push(i);
+    }
+  });
+
+  oldIssues.forEach(i => {
+    if (!newIssues.some(ni => getHash(ni) === getHash(i))) {
+      fixed.push(i);
+    }
+  });
+
+  return { added, fixed, persistent };
+}
+
+app.post('/api/audit/compare', (req, res) => {
+  const { ids } = req.body;
+  if (!ids || !Array.isArray(ids) || ids.length < 2) {
+    return res.status(400).json({ error: 'At least two audit IDs are required for comparison' });
+  }
+
+  try {
+    const audits = loadAudits();
+    const selectedAudits = ids.map(id => audits.find(a => a.id === id)).filter(Boolean) as AuditResult[];
+
+    if (selectedAudits.length < 2) {
+      return res.status(404).json({ error: 'One or more audits not found' });
+    }
+
+    // Sort by timestamp ascending to compare sequentially
+    selectedAudits.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    const results = [];
+    for (let i = 1; i < selectedAudits.length; i++) {
+      const prev = selectedAudits[i - 1];
+      const curr = selectedAudits[i];
+
+      const categoryDiffs: any = {};
+      Object.keys(curr.categories).forEach(catKey => {
+        const pCat = (prev.categories as any)[catKey];
+        const cCat = (curr.categories as any)[catKey];
+        if (pCat && cCat) {
+          categoryDiffs[catKey] = {
+            scoreDiff: cCat.score - pCat.score,
+            issues: compareIssues(pCat.issues, cCat.issues)
+          };
+        }
+      });
+
+      results.push({
+        fromId: prev.id,
+        toId: curr.id,
+        fromTimestamp: prev.timestamp,
+        toTimestamp: curr.timestamp,
+        scoreDiff: curr.totalScore - prev.totalScore,
+        categoryDiffs
+      });
+    }
+
+    res.json({
+      audits: selectedAudits,
+      comparisons: results,
+      summary: {
+        totalRuns: selectedAudits.length,
+        overallTrend: selectedAudits[selectedAudits.length - 1].totalScore - selectedAudits[0].totalScore
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 app.post('/api/audit/download-pdf', async (req, res) => {
   const { auditId } = req.body;
   if (!auditId) return res.status(400).json({ error: 'auditId is required' });
@@ -298,6 +384,67 @@ app.post('/api/audit/download-pdf', async (req, res) => {
 
     res.json({ pdfUrl: toWebPath(filePath) });
   } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+app.post('/api/audit/download-compare-pdf', async (req, res) => {
+  const { ids } = req.body;
+  if (!ids || !Array.isArray(ids) || ids.length < 2) {
+    return res.status(400).json({ error: 'At least two audit IDs are required' });
+  }
+
+  try {
+    const audits = loadAudits();
+    const selectedAudits = ids.map(id => audits.find(a => a.id === id)).filter(Boolean) as AuditResult[];
+    if (selectedAudits.length < 2) return res.status(404).json({ error: 'Audits not found' });
+
+    selectedAudits.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    const comparisons = [];
+    for (let i = 1; i < selectedAudits.length; i++) {
+        const prev = selectedAudits[i - 1];
+        const curr = selectedAudits[i];
+        const categoryDiffs: any = {};
+        Object.keys(curr.categories).forEach(catKey => {
+            const pCat = (prev.categories as any)[catKey];
+            const cCat = (curr.categories as any)[catKey];
+            if (pCat && cCat) {
+                categoryDiffs[catKey] = {
+                    scoreDiff: cCat.score - pCat.score,
+                    issues: compareIssues(pCat.issues, cCat.issues)
+                };
+            }
+          });
+        comparisons.push({ fromId: prev.id, toId: curr.id, categoryDiffs });
+    }
+
+    const overallTrend = selectedAudits[selectedAudits.length - 1].totalScore - selectedAudits[0].totalScore;
+    const html = generateComparisonReportHtml(selectedAudits, comparisons, overallTrend);
+    
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'load' }); // Changed from networkidle for reliability
+
+      const fileName = `comparison-report-${Date.now()}.pdf`;
+      const filePath = path.join(REPORTS_DIR, fileName);
+
+      // Wait a bit for Chart.js to render
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      await page.pdf({
+        path: filePath,
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' }
+      });
+
+      res.json({ pdfUrl: toWebPath(filePath) });
+    } finally {
+      await browser.close();
+    }
+  } catch (err) {
+    console.error('PDF Generation Error:', err); // Log for server-side debugging
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });

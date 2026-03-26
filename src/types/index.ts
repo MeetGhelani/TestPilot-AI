@@ -111,6 +111,11 @@ export interface AuditIssue {
   selector?: string;
   confidence?: 'high' | 'medium' | 'low';
   deduction?: number; // Optional tracking of score impact
+  // Enhanced Accessibility Fields
+  category?: string;
+  helpUrl?: string;
+  fix?: string;
+  screenshotPath?: string;
 }
 
 export interface AuditCategory {

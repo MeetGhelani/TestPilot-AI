@@ -81,13 +81,13 @@ export function generateReportHtml(audit: AuditResult): string {
       </div>
       
       ${(() => {
-        const filteredMetrics = Object.entries(cat.metrics || {}).filter(([label]) => label !== 'JS Heap Used' && label !== 'JS Heap Limit');
-        if (filteredMetrics.length === 0) return '';
-        return `
+      const filteredMetrics = Object.entries(cat.metrics || {}).filter(([label]) => label !== 'JS Heap Used' && label !== 'JS Heap Limit');
+      if (filteredMetrics.length === 0) return '';
+      return `
           <div class="metrics-container">
             ${filteredMetrics.map(([label, value]) => {
-              const info = getMetricInfo(label, value);
-              return `
+        const info = getMetricInfo(label, value);
+        return `
                 <div class="metric-item">
                   <div class="metric-info">
                     <div class="metric-label">${label}</div>
@@ -102,10 +102,10 @@ export function generateReportHtml(audit: AuditResult): string {
                   </div>
                 </div>
               `;
-            }).join('')}
+      }).join('')}
           </div>
         `;
-      })()}
+    })()}
 
       <div class="category-status">${cat.issues.length} issues detected</div>
     </div>
@@ -115,11 +115,16 @@ export function generateReportHtml(audit: AuditResult): string {
     <div class="issue-item">
       <div class="issue-main">
         <span class="issue-icon ${issue.type}">${issue.type === 'error' ? '⊗' : '⚠'}</span>
-        <span class="issue-msg">${escapeHtml(issue.message)}</span>
+        <div class="issue-title-container">
+          <span class="issue-msg">${escapeHtml(issue.message)}</span>
+          ${issue.category ? `<span style="font-size: 10px; color: var(--text3); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; margin-left: 8px;">${issue.category}</span>` : ''}
+        </div>
         <span class="issue-severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
       </div>
       ${issue.impact ? `<div class="issue-detail"><strong>Impact:</strong> ${escapeHtml(issue.impact)}</div>` : ''}
-      ${issue.recommendation ? `<div class="issue-fix"><strong>Fix:</strong> ${escapeHtml(issue.recommendation)}</div>` : ''}
+      ${issue.fix ? `<div class="issue-fix"><strong>Suggested Fix:</strong> <br/><code>${escapeHtml(issue.fix)}</code></div>` : ''}
+      ${!issue.fix && issue.recommendation && issue.recommendation !== issue.helpUrl ? `<div class="issue-fix"><strong>Fix:</strong> ${escapeHtml(issue.recommendation)}</div>` : ''}
+      ${issue.helpUrl ? `<div class="issue-detail" style="margin-top: 8px;"><a href="${issue.helpUrl}" target="_blank" style="color: #38bdf8; text-decoration: none; font-size: 12px; font-weight: 600;">WCAG Documentation ↗</a></div>` : ''}
     </div>
   `;
 
@@ -395,6 +400,14 @@ export function generateReportHtml(audit: AuditResult): string {
           margin-bottom: 8px;
         }
 
+        .issue-title-container {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
         .issue-icon {
           font-size: 20px;
         }
@@ -488,12 +501,18 @@ export function generateReportHtml(audit: AuditResult): string {
       </div>
 
       <div class="grid">
-        ${renderCategory('Functional', categories.functional)}
-        ${renderCategory('UI & Visuals', categories.ui)}
-        ${renderCategory('Performance', categories.performance)}
-        ${categories.accessibility ? renderCategory('Accessibility', categories.accessibility) : ''}
-        ${renderCategory('Links', categories.links)}
-        ${categories.seo ? renderCategory('SEO', categories.seo) : ''}
+        ${Object.entries(categories).map(([key, cat]) => {
+    const labelMap: Record<string, string> = {
+      functional: 'Functional',
+      ui: 'UI & Visuals',
+      performance: 'Performance',
+      links: 'Links',
+      console: 'Console & Errors',
+      accessibility: 'Accessibility',
+      seo: 'Search & SEO'
+    };
+    return renderCategory(labelMap[key] || key.charAt(0).toUpperCase() + key.slice(1), cat as AuditCategory);
+  }).join('')}
       </div>
 
       ${(() => {
@@ -565,4 +584,312 @@ function generateAiSummary(audit: AuditResult): string {
   }
 
   return summary;
+}
+
+export function generateComparisonReportHtml(audits: AuditResult[], comparisons: any[], overallTrend: number): string {
+  const first = audits[0];
+  const latest = audits[audits.length - 1];
+  const hostname = new URL(latest.url).hostname;
+
+  const escapeHtml = (str: string) => {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>Comparison Report - ${hostname}</title>
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <style>
+        :root {
+          --bg: #09090b;
+          --surface: #18181b;
+          --surface2: #27272a;
+          --border: #3f3f46;
+          --text: #ffffff;
+          --text2: #a1a1aa;
+          --text3: #71717a;
+          --accent: #c8f069;
+          --danger: #ef4444;
+          --success: #22c55e;
+          --info: #38bdf8;
+          --font-sans: 'Inter', -apple-system, sans-serif;
+        }
+        * { box-sizing: border-box; }
+        body { 
+          background: var(--bg); 
+          color: var(--text); 
+          font-family: var(--font-sans); 
+          padding: 60px; 
+          margin: 0 auto;
+          line-height: 1.5;
+        }
+        .header { 
+          border-bottom: 1px solid var(--border); 
+          padding-bottom: 30px; 
+          margin-bottom: 40px; 
+        }
+        .header h1 { 
+          font-size: 32px; 
+          margin: 0 0 10px 0; 
+          font-weight: 800;
+          letter-spacing: -0.02em;
+        }
+        .header p { color: var(--text2); margin: 0; font-size: 14px; }
+        
+        .summary-grid { 
+          display: grid; 
+          grid-template-columns: 1fr 2fr; 
+          gap: 24px; 
+          margin-bottom: 40px; 
+        }
+        .summary-card { 
+          background: linear-gradient(145deg, #3f3f44ff 0%, #09090b 100%);
+          padding: 32px; 
+          border-radius: 24px; 
+          border: 1px solid var(--border); 
+          box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .trend-value { 
+          font-size: 56px; 
+          font-weight: 900; 
+          letter-spacing: -0.04em;
+          line-height: 1;
+          margin-top: 8px;
+          color: ${overallTrend >= 0 ? 'var(--success)' : 'var(--danger)'}; 
+        }
+        .card-label { font-size: 12px; color: var(--text1); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+
+        .chart-container { 
+          background: #111; 
+          padding: 30px; 
+          border-radius: 24px; 
+          border: 1px solid var(--border); 
+          margin-bottom: 40px; 
+          box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+          .chart {
+            width: 620px;
+            height: 100%;
+          } 
+        
+        .table-container {
+          background: var(--surface);
+          border-radius: 20px;
+          border: 1px solid var(--border);
+          overflow: hidden;
+          margin-bottom: 40px;
+        }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th { 
+          background: rgba(255,255,255,0.03); 
+          padding: 20px; 
+          color: var(--text2); 
+          font-size: 11px; 
+          text-transform: uppercase; 
+          letter-spacing: 0.1em;
+          text-align: left;
+          border-bottom: 1px solid var(--border);
+        }
+        .table td { 
+          padding: 20px; 
+          border-bottom: 1px solid rgba(255,255,255,0.05); 
+          font-size: 14px;
+        }
+        .table tr:last-child td { border-bottom: none; }
+        
+        .issue-delta { padding: 24px; border-radius: 16px; margin-bottom: 16px; border: 1px solid var(--border); line-height: 1.6; }
+        .issue-fixed { background: rgba(34, 197, 94, 0.05); border-color: rgba(34, 197, 94, 0.2); }
+        .issue-new { background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.2); }
+        
+        h2 { font-size: 20px; font-weight: 800; margin-bottom: 24px; color: var(--text); }
+        h3 { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: var(--text2); }
+      </style>
+    </head>
+    <body style="opacity: 0; transition: opacity 0.5s;">
+      <div class="header">
+        <h1>Comparison Report: <em style="color: var(--accent); font-style: normal;">${hostname}</em></h1>
+        <div style="color: var(--accent); font-size: 14px; margin-bottom: 12px; font-weight: 500;">Target: ${latest.url}</div>
+        <p>Comparison of ${audits.length} benchmarks from ${new Date(first.timestamp).toLocaleDateString()} to ${new Date(latest.timestamp).toLocaleDateString()}</p>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="card-label">Overall Health Trend</div>
+          <div class="trend-value">${overallTrend >= 0 ? '+' : ''}${overallTrend}%</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-label">Comparison Scope</div>
+          <div style="display: flex; gap: 40px; align-items: baseline; margin-top: 8px;">
+            <div>
+              <div style="font-size: 32px; font-weight: 800; color: var(--info);">${audits.length}</div>
+              <div style="font-size: 12px; color: var(--text2); font-weight: 600;">AUDITS COMPARED</div>
+            </div>
+            <div style="flex: 1; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 30px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <span style="font-size: 12px; color: var(--text2);">First Score</span>
+                <span style="font-size: 14px; font-weight: 700;">${first.totalScore}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="font-size: 12px; color: var(--text2);">Latest Score</span>
+                <span style="font-size: 14px; font-weight: 700; color: var(--accent);">${latest.totalScore}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <div class="card-label" style="margin-bottom: 24px;">Health Score Trajectory</div>
+        <div style="height: 350px;" class="chart">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+
+      <h2>Performance & Quality Delta</h2>
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width: 40%">Category</th>
+              <th style="width: 20%">Initial <div style="font-size: 10px; opacity: 0.8;">${new Date(first.timestamp).toLocaleDateString()}</div></th>
+              <th style="width: 20%">Latest <div style="font-size: 10px; opacity: 0.8; color: var(--accent);">${new Date(latest.timestamp).toLocaleDateString()}</div></th>
+              <th style="width: 20%">Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.keys(latest.categories).map(key => {
+    const catKey = key as keyof typeof latest.categories;
+    const pScore = first.categories[catKey]?.score || 0;
+    const cScore = latest.categories[catKey]?.score || 0;
+    const diff = cScore - pScore;
+    return `
+                <tr>
+                  <td style="font-weight: 700; text-transform: capitalize; color: var(--text2);">${key}</td>
+                  <td>${pScore}</td>
+                  <td style="font-weight: 700;">${cScore}</td>
+                  <td style="color: ${diff > 0 ? 'var(--success)' : diff < 0 ? 'var(--danger)' : 'var(--text3)'}; font-weight: 800;">
+                    ${diff > 0 ? '+' : ''}${diff}%
+                  </td>
+                </tr>
+              `;
+  }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 style="margin-top: 60px;">Critical Observation Changes</h2>
+      ${comparisons.map(comp => {
+    const catEntries = Object.entries(comp.categoryDiffs);
+    return catEntries.map(([catKey, diff]: any) => {
+      if (diff.issues.added.length === 0 && diff.issues.fixed.length === 0) return '';
+      return `
+            <div style="margin-bottom: 32px;">
+              <h3 style="text-transform: capitalize; border-left: 3px solid var(--accent); padding-left: 12px;">${catKey} Differences</h3>
+              ${(diff.issues?.fixed || []).map((issue: any) => `
+                <div class="issue-delta issue-fixed">
+                  <span style="background: var(--success); color: #000; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 800; margin-right: 12px;">FIXED</span>
+                  <span style="color: var(--text2)">${escapeHtml(issue.message)}</span>
+                </div>
+              `).join('')}
+              ${(diff.issues?.added || []).map((issue: any) => `
+                <div class="issue-delta issue-new">
+                  <span style="background: var(--danger); color: #000; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 800; margin-right: 12px;">NEW</span>
+                  <span style="color: var(--text); font-weight: 500;">${escapeHtml(issue.message)}</span>
+                  <div style="font-size: 11px; color: var(--text3); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em;">Severity: ${issue.severity}</div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+    }).join('');
+  }).join('')}
+
+      <div style="margin-top: 80px; padding-top: 30px; border-top: 1px solid var(--border); text-align: center;">
+        <div style="font-size: 11px; color: var(--info); text-transform: uppercase; letter-spacing: 0.2em;">
+          TESTPILOT AI Audit Intelligence • Generated at ${new Date().toLocaleString()}
+        </div>
+      </div>
+
+      <script>
+        window.addEventListener('load', () => {
+          const ctx = document.getElementById('trendChart').getContext('2d');
+          new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: ${JSON.stringify(audits.map(a => new Date(a.timestamp).toLocaleDateString()))},
+              datasets: [{
+                label: 'Health Score',
+                data: ${JSON.stringify(audits.map(a => a.totalScore))},
+                borderColor: '#c8f069',
+                borderWidth: 4,
+                backgroundColor: (context) => {
+                  const chart = context.chart;
+                  const {ctx, chartArea} = chart;
+                  if (!chartArea) return null;
+                  const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                  gradient.addColorStop(0, 'rgba(200, 240, 105, 0.2)');
+                  gradient.addColorStop(1, 'rgba(200, 240, 105, 0)');
+                  return gradient;
+                },
+                fill: true,
+                tension: 0.4,
+                pointRadius: 8,
+                pointHoverRadius: 10,
+                pointBackgroundColor: '#c8f069',
+                pointBorderColor: '#09090b',
+                pointBorderWidth: 2
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: false,
+              layout: {
+                padding: {
+                  right: 40,
+                  left: 10,
+                  top: 10,
+                  bottom: 10
+                }
+              },
+              plugins: { 
+                legend: { display: false },
+                tooltip: { enabled: false } 
+              },
+              scales: {
+                y: { 
+                  min: 0, 
+                  max: 100, 
+                  grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false }, 
+                  ticks: { 
+                    color: '#a1a1aa', 
+                    font: { size: 11, weight: '600' },
+                    padding: 10
+                  } 
+                },
+                x: { 
+                  grid: { display: false }, 
+                  ticks: { 
+                    color: '#a1a1aa', 
+                    font: { size: 10, weight: '600' },
+                    maxRotation: 0,
+                    padding: 15
+                  } 
+                }
+              }
+            }
+          });
+          document.body.style.opacity = '1';
+        });
+      </script>
+    </body>
+    </html>
+  `;
 }
