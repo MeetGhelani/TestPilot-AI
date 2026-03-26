@@ -37,23 +37,6 @@ npx ts-node src/cli.ts -p web -u https://example.com -t "verify header is visibl
 
 ## Features
 
-### Run Test
-Describe your test in plain English and run it instantly.
-
-- Enter your site URL
-- Toggle **Basic Auth** if your site requires a login popup (username + password fields appear)
-- Type your test in plain English:
-  ```
-  verify header is visible, scroll to bottom, take screenshot
-  fill #username with 'student', fill #password with 'Password123', click #submit, wait 2000, verify url contains 'logged-in', take screenshot
-  ```
-- Choose platform: **web**, **mobile**, or **desktop**
-- Click **▶ RUN TEST**
-- Results appear inline with per-step pass/fail, screenshots, and timing
-- Download the full **HTML report**
-
----
-
 ### Record & Replay
 Record real browser interactions and replay them automatically.
 
@@ -123,16 +106,18 @@ Deeply audit any site for performance, accessibility, SEO, and more.
 7. View a side-by-side **Comparison Report** with scores for each device type
 8. Analyze **Visual Performance Charts** (FCP, TBT, DOM Nodes)
 9. Use **Interactive Highlighting** to instantly find failing elements on the live site
-10. View detailed results across 7 categories:
+10. **Accessibility Detailed View**: Expand the Accessibility category to see grouped issues (Color & Contrast, Navigation, ARIA, etc.), actionable fix suggestions, WCAG documentation links, and DOM snippets powered by axe-core.
+11. View detailed results across 7 categories:
    - **Functional**: Site uptime and auth status
    - **Performance**: FCP, TBT, CLS, and Memory usage
-   - **Accessibility**: Missing alt-text, input labels, heading structure
+   - **Accessibility**: Deep WCAG scans via targeted rules (Alt-text, input labels, precise heading hierarchy validation, tab-tracking for keyboard nav)
    - **SEO**: Meta tags, canonicals, robots.txt, OG tags
    - **Links**: Scans for 404s and network errors
    - **Console**: Captures JS errors and uncaught exceptions
    - **UI**: Detects tap target sizing, text clipping, layout shifts, and fixed overlays
-6. Each category gets a **0-100 Score** and status (Passed/Warning/Failed)
-7. Audit reports are saved to `data/audits.json` for later review
+12. **PDF Reporting**: Generate rich, chart-enabled PDF reports directly from the dashboard, including Multi-Device Comparison Trend analysis.
+13. Each category gets a **0-100 Score** and status (Passed/Warning/Failed)
+14. Audit reports are saved to `data/audits.json` for later review
 
 ---
 
@@ -166,7 +151,7 @@ Every test run and audit is saved and viewable anytime.
 
 For password-protected sites (nginx/Apache HTTP auth popup):
 
-All tabs (Run test, Record & replay, Suggest tests, Scan site) have a **"Site requires Basic Auth"** toggle.
+All tabs (Record & replay, Suggest tests, Site Audit) have a **"Site requires Basic Auth"** toggle.
 Turn it on → username and password fields appear → credentials sent securely, never in the URL.
 
 ---
