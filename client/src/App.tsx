@@ -5,6 +5,7 @@ import HistoryPanel from './components/HistoryPanel'
 import AuditPanel from './components/AuditPanel'
 import LandingPage from './components/LandingPage'
 import Navbar from './components/Navbar'
+import AuthPage from './components/AuthPage'
 
 export type Platform = 'web' | 'mobile' | 'desktop'
 
@@ -63,11 +64,23 @@ export default function App() {
   )
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [globalBusy, setGlobalBusy] = useState(false)
+  const [isAuthOpen, setIsAuthOpen] = useState(false)
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
 
   const switchTab = (tab: TabId) => {
     if (globalBusy) return
     setActiveTab(tab)
     localStorage.setItem('activeTab', tab)
+  }
+
+  const openAuth = (mode: 'login' | 'signup' = 'login') => {
+    setAuthMode(mode)
+    setIsAuthOpen(true)
+  }
+
+  const handleAuthSuccess = () => {
+    setIsAuthOpen(false)
+    switchTab('audit') // Go to app after login
   }
 
   const fetchHistory = async () => {
@@ -101,7 +114,15 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
-      <Navbar activeTab={activeTab} switchTab={switchTab} globalBusy={globalBusy} />
+      <Navbar activeTab={activeTab} switchTab={switchTab} globalBusy={globalBusy} onOpenAuth={openAuth} />
+
+      {isAuthOpen && (
+        <AuthPage 
+          initialMode={authMode} 
+          onClose={() => setIsAuthOpen(false)} 
+          onLogin={handleAuthSuccess} 
+        />
+      )}
 
       {/* Body */}
       <div style={{ flex: 1, display: 'flex', gap: 0 }}>

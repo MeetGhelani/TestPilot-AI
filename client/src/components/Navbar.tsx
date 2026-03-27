@@ -4,9 +4,10 @@ interface NavbarProps {
   activeTab: string;
   switchTab: (tab: any) => void;
   globalBusy: boolean;
+  onOpenAuth: (mode?: 'login' | 'signup') => void;
 }
 
-export default function Navbar({ activeTab, switchTab, globalBusy }: NavbarProps) {
+export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth }: NavbarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isMarketing = activeTab === 'home';
@@ -175,11 +176,12 @@ export default function Navbar({ activeTab, switchTab, globalBusy }: NavbarProps
             <>
               <button
                 className="login-btn-ghost"
+                onClick={() => onOpenAuth('login')}
               >
                 Login
               </button>
               <button
-                onClick={() => switchTab('audit')}
+                onClick={() => onOpenAuth('signup')}
                 style={{
                   background: theme.accent, color: '#000', border: 'none', padding: '10px 24px', borderRadius: 100,
                   fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
