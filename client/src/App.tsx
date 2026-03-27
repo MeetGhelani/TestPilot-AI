@@ -3,6 +3,7 @@ import SmartSuggester from './components/SmartSuggester'
 import RecordReplay from './components/RecordReplay'
 import HistoryPanel from './components/HistoryPanel'
 import AuditPanel from './components/AuditPanel'
+import LandingPage from './components/LandingPage'
 
 export type Platform = 'web' | 'mobile' | 'desktop'
 
@@ -53,11 +54,11 @@ export interface AuditResult {
 
 export type HistoryItem = TestResult | AuditResult
 
-type TabId = 'history' | 'record' | 'suggest' | 'audit'
+type TabId = 'home' | 'history' | 'record' | 'suggest' | 'audit'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>(
-    () => (localStorage.getItem('activeTab') as TabId) ?? 'audit'
+    () => (localStorage.getItem('activeTab') as TabId) ?? 'home'
   )
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [globalBusy, setGlobalBusy] = useState(false)
@@ -98,6 +99,7 @@ export default function App() {
   }
 
   const TAB_LABELS: Record<TabId, string> = {
+    home: 'Home',
     record: 'Record & replay',
     suggest: 'Suggest tests',
     audit: 'Site Audit',
@@ -123,7 +125,7 @@ export default function App() {
             </div>
           )}
 
-          {(['record', 'suggest', 'audit', 'history'] as TabId[]).map(tab => (
+          {(['home', 'record', 'suggest', 'audit', 'history'] as TabId[]).map(tab => (
             <button
               key={tab}
               onClick={() => switchTab(tab)}
@@ -149,7 +151,11 @@ export default function App() {
 
       {/* Body */}
       <div style={{ flex: 1, display: 'flex', gap: 0 }}>
-        {activeTab === 'record' ? (
+        {activeTab === 'home' ? (
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <LandingPage onGetStarted={() => switchTab('audit')} />
+          </div>
+        ) : activeTab === 'record' ? (
           <div style={{ flex: 1, padding: 28, overflowY: 'auto' }}>
             <RecordReplay onBusyChange={setGlobalBusy} />
           </div>
