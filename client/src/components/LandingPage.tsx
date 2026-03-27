@@ -142,7 +142,6 @@ export default function LandingPage({ onGetStarted }: { onGetStarted: () => void
     }
     @keyframes fillProgress {
       from { width: 0; }
-      to { width: 100%; }
     }
     @keyframes numberPop {
       0%, 100% { transform: scale(0.6); opacity: 0; filter: blur(10px); }
@@ -551,14 +550,14 @@ export default function LandingPage({ onGetStarted }: { onGetStarted: () => void
                   <div style={{ flex: '0 0 80px', height: 80, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <svg width="80" height="80" style={{ transform: 'rotate(-90deg)', position: 'absolute' }}>
                       <circle cx="40" cy="40" r="34" stroke="rgba(200,240,105,0.1)" strokeWidth="6" fill="none" />
-                      <circle cx="40" cy="40" r="34" stroke={theme.accent} strokeWidth="6" fill="none" strokeDasharray="213" strokeDashoffset="21" style={{ transition: 'stroke-dashoffset 2s' }} />
+                      <circle cx="40" cy="40" r="34" stroke={theme.accent} strokeWidth="6" fill="none" strokeDasharray="195" strokeDashoffset="21" strokeLinecap="round" style={{ transition: 'stroke-dashoffset 2s' }} />
                     </svg>
-                    <div style={{ fontSize: 24, fontWeight: 900, color: theme.accent }}>96</div>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: theme.accent }}>81</div>
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {[
-                      { label: 'Perf', val: 98, color: '#10B981' },
-                      { label: 'Acc', val: 94, color: theme.accent },
+                      { label: 'Perf', val: 80, color: '#10B981' },
+                      { label: 'Acc', val: 64, color: theme.accent },
                       { label: 'SEO', val: 100, color: '#3B82F6' }
                     ].map((m, i) => (
                       <div key={i}>
