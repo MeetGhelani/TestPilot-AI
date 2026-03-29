@@ -103,8 +103,8 @@ export default function HistoryPanel({ history, onClear, onDeleteItem, onDeleteI
                     ? `4px solid var(--fail)` 
                     : (isSelected ? `5px solid var(--accent)` : `1px solid var(--border)`),
                   boxShadow: isChecked 
-                    ? '0 0 12px #f8717115' 
-                    : (isSelected ? '0 0 12px #c8f06915' : 'none'),
+                    ? 'var(--fail-glow)' 
+                    : (isSelected ? 'var(--accent-glow)' : 'none'),
                   transform: isChecked ? 'translateX(2px)' : 'none',
                   opacity: isEditing && !isChecked ? 0.8 : 1
                 }}
@@ -150,7 +150,7 @@ export default function HistoryPanel({ history, onClear, onDeleteItem, onDeleteI
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                    <div style={{ padding: '3px 10px', borderRadius: 20, background: r.status === 'passed' ? '#4ade8022' : '#f8717122', color: statusColor, fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 500, marginLeft: 10, flexShrink: 0 }}>
+                    <div style={{ padding: '3px 10px', borderRadius: 20, background: r.status === 'passed' ? 'var(--pass-glow)' : 'var(--fail-glow)', color: statusColor, border: `1px solid ${r.status === 'passed' ? 'var(--pass-border)' : 'var(--fail-border)'}`, fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 500, marginLeft: 10, flexShrink: 0 }}>
                       {r.status.toUpperCase()}
                     </div>
                   </div>
@@ -184,7 +184,7 @@ export default function HistoryPanel({ history, onClear, onDeleteItem, onDeleteI
                   <div key={name} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8 }}>
                       <span style={{ textTransform: 'capitalize', color: 'var(--text2)' }}>{name}</span>
-                      <span style={{ color: cat.score > 80 ? 'var(--pass)' : cat.score > 50 ? '#fbbf24' : 'var(--fail)', fontWeight: 600 }}>{cat.score}</span>
+                      <span style={{ color: cat.score > 80 ? 'var(--pass)' : cat.score > 50 ? 'var(--warning)' : 'var(--fail)', fontWeight: 600 }}>{cat.score}</span>
                     </div>
                     
                     {cat.metrics && Object.keys(cat.metrics).length > 0 && (

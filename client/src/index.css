@@ -7,28 +7,63 @@
 }
 
 :root {
-  --bg: #0f0f0f;
-  --surface: #161616;
-  --surface2: #1e1e1e;
-  --border: #2a2a2a;
-  --border2: #333;
+  /* Dark Theme (Default) */
+  --bg: #0B0F0C;
+  --surface: #121814;
+  --surface2: #1c251e;
+  --border: #1F2922;
+  --border2: #2a382e;
   --text: #ffffff;
   --text1: #ffffffe8;
-  --text2: #999999;
-  --text3: #646464;
+  --text2: #94a3b8;
+  --text3: #64748b;
   --accent: #c8f069;
-  --accent2:#b9e26163;
+  --accent-glow: rgba(200, 240, 105, 0.2);
+  --glass: rgba(11, 15, 12, 0.8);
+  
   --pass: #4ade80;
   --fail: #f87171;
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 190, 36, 0.073);
   --info: #38bdf8;
   --skip: #555;
-  --font-sans: 'DM Sans', sans-serif;
+  
+  --font-sans: 'Inter', 'DM Sans', sans-serif;
   --font-serif: 'Instrument Serif', serif;
   --font-mono: 'DM Mono', monospace;
 }
 
+[data-theme='light'] {
+  /* Light Theme */
+  --bg: #F8FAFC;
+  --surface: #ffffff;
+  --surface2: #f1f5f9;
+  --border: #e2e8f0;
+  --border2: #cbd5e1;
+  --text: #0f172a;
+  --text1: #1e293b;
+  --text2: #475569;
+  --text3: #64748b;
+  --accent: #8fb534; /* Deeper green for readability on white */
+  --accent-glow: rgba(143, 181, 52, 0.1);
+  --glass: rgba(255, 255, 255, 0.7);
+  --warning: rgb(245, 193, 23); /* Vibrant yellow for light mode */
+  --warning-bg: rgba(243, 194, 33, 0.278);
+}
+
+/* Hide scrollbars everywhere, but keep scrolling functional */
+*::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  -ms-overflow-style: none;  /* IE / Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+
 html {
-  overflow-y: scroll;
+  overflow-y: auto;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -38,4 +73,21 @@ body {
   font-size: 14px;
   line-height: 1.6;
   min-height: 100vh;
+}
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.8) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.scroll-top-btn {
+  animation: fadeInScale 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.scroll-top-btn:hover {
+  background: rgba(200, 240, 105, 0.1) !important;
+  border-color: rgba(200, 240, 105, 0.4) !important;
+  transform: translateY(-4px) scale(1.1) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(200, 240, 105, 0.1) !important;
 }

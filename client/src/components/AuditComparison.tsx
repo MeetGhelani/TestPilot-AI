@@ -94,21 +94,21 @@ export default function AuditComparison({ data, onBack }: AuditComparisonProps) 
       y: {
         min: 0,
         max: 100,
-        grid: { color: 'rgba(255,255,255,0.05)' },
-        ticks: { color: '#888' },
+        grid: { color: 'var(--border)' },
+        ticks: { color: 'var(--text3)' },
       },
       x: {
         grid: { display: false },
-        ticks: { color: '#888' },
+        ticks: { color: 'var(--text3)' },
       },
     },
   };
 
   const IssueBadge = ({ type, count }: { type: 'new' | 'fixed' | 'remaining', count: number }) => {
     const colors = {
-      new: { bg: 'rgba(248, 113, 113, 0.1)', text: '#f87171' },
-      fixed: { bg: 'rgba(74, 222, 128, 0.1)', text: '#4ade80' },
-      remaining: { bg: 'rgba(251, 191, 36, 0.1)', text: '#fbbf24' }
+      new: { bg: 'rgba(248, 113, 113, 0.1)', text: 'var(--fail)' },
+      fixed: { bg: 'rgba(74, 222, 128, 0.1)', text: 'var(--pass)' },
+      remaining: { bg: 'var(--warning-bg)', text: 'var(--warning)' }
     };
     return (
       <div style={{
@@ -255,14 +255,14 @@ export default function AuditComparison({ data, onBack }: AuditComparisonProps) 
 
       {/* Comparison Overview */}
       <div style={{ 
-        background: 'linear-gradient(135deg, #111 0%, #1a1a1a 100%)', 
-        border: '1px solid #333', 
+        background: 'var(--surface)', 
+        border: '1px solid var(--border)', 
         borderRadius: 24, 
         padding: 40,
         display: 'grid',
         gridTemplateColumns: '1fr 300px',
         gap: 40,
-        boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+        boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
       }}>
         <div>
           <div style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8 }}>Target : {latestAudit.url}</div>
@@ -280,18 +280,18 @@ export default function AuditComparison({ data, onBack }: AuditComparisonProps) 
           </div>
         </div>
         
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderLeft: '1px solid #222', paddingLeft: 40 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderLeft: '1px solid var(--border)', paddingLeft: 40 }}>
           <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8 }}>Overall Score Change</div>
           <div style={{ 
             fontSize: 48, 
             fontWeight: 900, 
-            color: summary.overallTrend >= 0 ? '#4ade80' : '#f87171',
+            color: summary.overallTrend >= 0 ? 'var(--pass)' : 'var(--fail)',
             display: 'flex',
             alignItems: 'baseline',
             gap: 4
           }}>
             {summary.overallTrend >= 0 ? '+' : ''}{summary.overallTrend}
-            <span style={{ fontSize: 16, color: '#444' }}>%</span>
+            <span style={{ fontSize: 16, color: 'var(--text3)' }}>%</span>
           </div>
           <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 8 }}>From {firstAudit.totalScore} to {latestAudit.totalScore}</div>
         </div>
@@ -317,7 +317,7 @@ export default function AuditComparison({ data, onBack }: AuditComparisonProps) 
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 24, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: '#0a0a0a', borderBottom: '1px solid var(--border)' }}>
+              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
                 <th style={{ padding: '20px 24px', fontSize: 12, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1.5 }}>Category</th>
                 <th style={{ padding: '20px 24px', fontSize: 12, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1.5 }}>{new Date(firstAudit.timestamp).toLocaleDateString()}</th>
                 <th style={{ padding: '20px 24px', fontSize: 12, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1.5 }}>{new Date(latestAudit.timestamp).toLocaleDateString()}</th>
@@ -338,7 +338,7 @@ export default function AuditComparison({ data, onBack }: AuditComparisonProps) 
                     <td style={{ 
                       padding: '20px 24px', 
                       fontWeight: 800, 
-                      color: diff > 0 ? '#4ade80' : diff < 0 ? '#f87171' : 'var(--text3)',
+                      color: diff > 0 ? 'var(--pass)' : diff < 0 ? 'var(--fail)' : 'var(--text3)',
                       fontFamily: 'var(--font-mono)'
                     }}>
                       {diff > 0 ? '↑' : diff < 0 ? '↓' : '-'} {Math.abs(diff)}%
@@ -357,38 +357,38 @@ export default function AuditComparison({ data, onBack }: AuditComparisonProps) 
         
         {comparisons[comparisons.length - 1] && Object.entries(comparisons[comparisons.length - 1].categoryDiffs).map(([catKey, diff]) => (
           (diff.issues.added.length > 0 || diff.issues.fixed.length > 0) && (
-            <div key={catKey} style={{ background: '#0a0a0a', borderRadius: 20, padding: 24, border: '1px solid #1a1a1a' }}>
+            <div key={catKey} style={{ background: 'var(--surface)', borderRadius: 20, padding: 24, border: '1px solid var(--border)' }}>
               <div style={{ fontSize: 11, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 20, fontWeight: 700 }}>
                 {catKey} Differences
               </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {/* Fixed Issues */}
-                {diff.issues.fixed.map((issue, i) => (
-                  <div key={`fixed-${i}`} style={{ background: 'rgba(74, 222, 128, 0.03)', border: '1px solid rgba(74, 222, 128, 0.1)', borderRadius: 12, padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <span style={{ color: '#4ade80', fontSize: 18 }}>✓</span>
-                      <div>
-                        <div style={{ color: '#4ade80', fontSize: 11, fontWeight: 800, marginBottom: 4 }}>FIXED</div>
-                        <div style={{ color: 'var(--text)', fontWeight: 600, fontSize: 14 }}>{issue.message}</div>
+                  {diff.issues.fixed.map((issue, i) => (
+                    <div key={`fixed-${i}`} style={{ background: 'rgba(74, 222, 128, 0.03)', border: '1px solid rgba(74, 222, 128, 0.1)', borderRadius: 12, padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <span style={{ color: 'var(--pass)', fontSize: 18 }}>✓</span>
+                        <div>
+                          <div style={{ color: 'var(--pass)', fontSize: 11, fontWeight: 800, marginBottom: 4 }}>FIXED</div>
+                          <div style={{ color: 'var(--text)', fontWeight: 600, fontSize: 14 }}>{issue.message}</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
                 {/* New Issues */}
-                {diff.issues.added.map((issue, i) => (
-                  <div key={`new-${i}`} style={{ background: 'rgba(248, 113, 113, 0.03)', border: '1px solid rgba(248, 113, 113, 0.1)', borderRadius: 12, padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <span style={{ color: '#f87171', fontSize: 18 }}>+</span>
-                      <div>
-                        <div style={{ color: '#f87171', fontSize: 11, fontWeight: 800, marginBottom: 4 }}>NEW ISSUE</div>
-                        <div style={{ color: 'var(--text)', fontWeight: 600, fontSize: 14 }}>{issue.message}</div>
+                  {diff.issues.added.map((issue, i) => (
+                    <div key={`new-${i}`} style={{ background: 'rgba(248, 113, 113, 0.03)', border: '1px solid rgba(248, 113, 113, 0.1)', borderRadius: 12, padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <span style={{ color: 'var(--fail)', fontSize: 18 }}>+</span>
+                        <div>
+                          <div style={{ color: 'var(--fail)', fontSize: 11, fontWeight: 800, marginBottom: 4 }}>NEW ISSUE</div>
+                          <div style={{ color: 'var(--text)', fontWeight: 600, fontSize: 14 }}>{issue.message}</div>
+                        </div>
                       </div>
+                      <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(248, 113, 113, 0.1)', color: 'var(--fail)', borderRadius: 4, textTransform: 'uppercase', border: '1px solid var(--fail)' }}>{issue.severity}</span>
                     </div>
-                    <span style={{ fontSize: 9, padding: '2px 6px', background: '#411', color: '#f87171', borderRadius: 4, textTransform: 'uppercase' }}>{issue.severity}</span>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           )

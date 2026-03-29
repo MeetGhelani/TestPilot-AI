@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
+export default function LandingPage({ isAuthenticated, isSessionLoading, onGetStarted, onGoToApp }: { isAuthenticated: boolean, isSessionLoading: boolean, onGetStarted: () => void, onGoToApp: () => void }) {
   const [isVisible, setIsVisible] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [auditScore, setAuditScore] = useState(0);
@@ -293,10 +293,10 @@ export default function LandingPage({ onGetStarted }: { onGetStarted: () => void
               The developer-first AI QA platform. Record flows, instantly generate test coverage, and deeply audit your site's SEO, Accessibility, and Performance—all in one place.
             </p>
             <div style={{ display: 'flex', gap: 16 }}>
-              <button onClick={onGetStarted} style={{ background: theme.accent, color: '#000', border: 'none', padding: '16px 32px', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 0 20px rgba(200,240,105,0.3)' }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 0 30px rgba(200,240,105,0.5)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 0 20px rgba(200,240,105,0.3)'; }}>
-                Start Testing Free
+              <button onClick={isAuthenticated ? onGoToApp : onGetStarted} disabled={isSessionLoading} style={{ background: theme.accent, color: '#000', border: 'none', padding: '16px 32px', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: isSessionLoading ? 'wait' : 'pointer', transition: 'all 0.2s', boxShadow: '0 0 20px rgba(200,240,105,0.3)', opacity: isSessionLoading ? 0.7 : 1 }}
+                onMouseEnter={e => { if (!isSessionLoading) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 0 30px rgba(200,240,105,0.5)'; } }}
+                onMouseLeave={e => { if (!isSessionLoading) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 0 20px rgba(200,240,105,0.3)'; } }}>
+                {isSessionLoading ? 'Loading...' : isAuthenticated ? 'Go to Dashboard' : 'Start Testing Free'}
               </button>
               <button style={{ background: 'transparent', color: theme.text, border: `1px solid ${theme.border}`, padding: '16px 32px', borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', backdropFilter: 'blur(10px)' }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
@@ -353,7 +353,7 @@ export default function LandingPage({ onGetStarted }: { onGetStarted: () => void
                     <span style={{ fontSize: 12, fontWeight: 700, color: theme.text, background: 'rgba(200,240,105,0.1)', padding: '4px 10px', borderRadius: 6, border: `1px solid rgba(200,240,105,0.2)` }}>STABLE</span>
                   </div>
                   <div style={{ height: 8, background: 'rgba(255,255,255,0.03)', borderRadius: 100, overflow: 'hidden', position: 'relative' }}>
-                    <div style={{ height: '100%', background: `linear-gradient(90deg, ${theme.accent}, #fff)`, borderRadius: 100, width: '0%', animation: 'fillProgress 4s cubic-bezier(0.65, 0, 0.35, 1) forwards' }} />
+                    <div style={{ height: '100%', background: `linear-gradient(90deg, ${theme.accent}, #fff)`, borderRadius: 100, width: '100%', animation: 'fillProgress 4s cubic-bezier(0.65, 0, 0.35, 1) forwards infinite' }} />
                   </div>
                 </div>
 
@@ -981,14 +981,14 @@ export default function LandingPage({ onGetStarted }: { onGetStarted: () => void
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
               <button 
-                onClick={onGetStarted}
+                onClick={isAuthenticated ? onGoToApp : onGetStarted}
                 className="footer-btn-primary"
                 style={{ 
                   background: theme.accent, color: '#000', border: 'none', padding: '18px 40px', borderRadius: 100, 
                   fontSize: 18, fontWeight: 700, cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   boxShadow: '0 0 20px rgba(200,240,105,0.3)', display: 'flex', alignItems: 'center', gap: 8
                 }}>
-                Start Testing Free <span>&rarr;</span>
+                {isAuthenticated ? 'Go to Dashboard' : 'Start Testing Free'} <span>&rarr;</span>
               </button>
               
               <button 
@@ -1002,7 +1002,7 @@ export default function LandingPage({ onGetStarted }: { onGetStarted: () => void
             </div>
             
             <p style={{ fontSize: 14, color: theme.textMuted, opacity: 0.8 }}>
-              No signup required • Works instantly on any URL
+              {isAuthenticated ? 'Welcome back! Your dashboard is ready.' : 'No signup required • Works instantly on any URL'}
             </p>
           </div>
 
@@ -1071,8 +1071,8 @@ export default function LandingPage({ onGetStarted }: { onGetStarted: () => void
         className="scroll-top-btn"
         style={{
           position: 'fixed',
-          bottom: 100,
-          right: 130,
+          bottom: 90,
+          right: 90,
           width: 50,
           height: 50,
           borderRadius: '50%',

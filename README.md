@@ -121,6 +121,30 @@ Deeply audit any site for performance, accessibility, SEO, and more.
 
 ---
 
+### Authentication & Security
+Secure user management and project protection powered by Supabase.
+
+1. **Email/Password Auth**: Secure signup and login flows.
+2. **Google OAuth**: One-click login with Google integration.
+3. **Password Reset Flow**: 
+   - "Forgot Password" link in the login modal.
+   - Secure magic link sent via email.
+   - Dedicated `/reset-password` route with premium glassmorphism UI.
+   - Real-time password strength and matching validation.
+4. **Protected Dashboard**: Ensures only authenticated users can access sensitive audit data and test histories.
+
+---
+
+### UI/UX Enhancements
+A premium, developer-first experience with modern design principles.
+
+1. **Premium Navigation**: Persistent, glassmorphism Navbar with context-aware actions.
+2. **Global Scroll-to-Top**: A dynamic, animated button appearing across all product pages for seamless navigation.
+3. **Responsive Routing**: Instrumented with `react-router-dom` for fast, state-aware page transitions.
+4. **Dark Mode Aesthetics**: Deep `#0B0F0C` surfaces with neon green `#c8f069` accents and subtle backdrop filters.
+
+---
+
 ### CLI Tool
 Run tests directly from your terminal.
 
@@ -220,18 +244,25 @@ ai-test-tool/
 │   └── types/
 │       └── index.ts          — Shared TypeScript types
 ├── client/                   — React + Vite frontend
-│   └── src/
-│       ├── App.tsx
-│       └── components/
-│           ├── AuditPanel.tsx
-│           ├── TestForm.tsx
-│           ├── ResultPanel.tsx
-│           ├── HistoryPanel.tsx
-│           ├── RecordReplay.tsx
-│           ├── StepEditor.tsx
-│           ├── SmartSuggester.tsx
-│           ├── SiteScanner.tsx
-│           └── ScreenshotViewer.tsx
+│   ├── src/
+│   │   ├── App.tsx           — Main router and layout orchestrator
+│   │   ├── main.tsx          — App entry point with BrowserRouter
+│   │   └── components/
+│   │       ├── AuditPanel.tsx
+│   │       ├── TestForm.tsx
+│   │       ├── ResultPanel.tsx
+│   │       ├── HistoryPanel.tsx
+│   │       ├── RecordReplay.tsx
+│   │       ├── StepEditor.tsx
+│   │       ├── SmartSuggester.tsx
+│   │       ├── SiteScanner.tsx
+│   │       ├── ScreenshotViewer.tsx
+│   │       ├── AuthPage.tsx      — Login/Signup/Forgot Password modal
+│   │       ├── ResetPassword.tsx — Dedicated password reset page
+│   │       ├── Navbar.tsx        — Global navigation component
+│   │       └── SettingsPage.tsx  — User profile and account settings
+├── lib/
+│   └── supabase.js           — Supabase client configuration
 ├── reports/                  — Auto-generated reports + screenshots
 ├── data/                     — Persistent storage for scans and audits
 └── package.json

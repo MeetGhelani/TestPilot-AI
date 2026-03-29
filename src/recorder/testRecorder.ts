@@ -91,6 +91,18 @@ export async function startRecording(url: string, authUser?: string, authPass?: 
     httpCredentials,
   });
 
+  // ── Reset state if browser is closed manually ────────────────────────────
+  activeBrowser.on('disconnected', () => {
+    if (isRecording) {
+      console.log('[Recorder] Browser disconnected, stopping recording.');
+      isRecording = false;
+      activeBrowser = null;
+      activeContext = null;
+      activePage = null;
+      liveSteps = [];
+    }
+  });
+
   // ── Inject selector helper into every new page ────────────────────────────
   await activeContext.addInitScript(() => {
     (window as any).__getBestSelector = (el: HTMLElement): string => {

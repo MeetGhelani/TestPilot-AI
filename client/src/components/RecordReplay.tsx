@@ -34,7 +34,20 @@ export default function RecordReplay({ onBusyChange }: Props = {}) {
     try { const r = await fetch('http://localhost:3001/api/recordings'); setRecordings(await r.json()) } catch {}
   }
 
-  useEffect(() => { fetchRecordings() }, [])
+  useEffect(() => {
+    fetchRecordings()
+    const checkStatus = async () => {
+      try {
+        const r = await fetch('http://localhost:3001/api/record/status')
+        const d = await r.json()
+        if (d.isRecording) {
+          setIsRecording(true)
+          setLiveSteps(d.steps ?? [])
+        }
+      } catch {}
+    }
+    checkStatus()
+  }, [])
   useEffect(() => { stepsEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [liveSteps])
 
   useEffect(() => {
@@ -141,7 +154,7 @@ export default function RecordReplay({ onBusyChange }: Props = {}) {
     setConfirmDelete(null); fetchRecordings()
   }
 
-  const inp: React.CSSProperties = { width: '100%', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 8, padding: '10px 12px', color: 'var(--text)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none' }
+  const inp: React.CSSProperties = { width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none' }
   const lbl: React.CSSProperties = { fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, display: 'block' }
 
   return (
@@ -150,9 +163,13 @@ export default function RecordReplay({ onBusyChange }: Props = {}) {
       {/* ── Left: controls ── */}
       <div style={{ width: 340, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 400, lineHeight: 1.2 }}>
-            Record &amp;<br /><em style={{ color: 'var(--accent)' }}>replay tests</em>
+          <h1 style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.2 }}>
+            Record &amp;<br /><em style={{ color: 'var(--accent)', fontFamily: 'var(--font-serif)', fontWeight: 500 }}>replay tests</em>
           </h1>
+
+          {/*<h1 style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)' }}>Record <em style={{ color: 'var(--accent)', fontFamily: 'var(--font-serif)' }}>Audit</em></h1>*/}
+
+
           <p style={{ color: 'var(--text2)', fontSize: 12, marginTop: 6 }}>Every action is captured live, one step at a time.</p>
         </div>
 
@@ -163,8 +180,8 @@ export default function RecordReplay({ onBusyChange }: Props = {}) {
 
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: isRecording ? 'not-allowed' : 'pointer', userSelect: 'none' }} onClick={() => !isRecording && setUseAuth(v => !v)}>
-            <div style={{ width: 40, height: 22, borderRadius: 11, background: useAuth ? 'var(--accent)' : 'var(--surface2)', border: `2px solid ${useAuth ? 'var(--accent)' : 'var(--border2)'}`, position: 'relative', transition: 'all 0.2s', flexShrink: 0 }}>
-              <div style={{ position: 'absolute', top: 1, left: useAuth ? 19 : 1, width: 16, height: 16, borderRadius: '50%', background: useAuth ? '#0f0f0f' : 'var(--text3)', transition: 'left 0.2s' }} />
+            <div style={{ width: 40, height: 22, borderRadius: 11, background: useAuth ? 'var(--accent)' : 'var(--surface2)', border: `2px solid ${useAuth ? 'var(--accent)' : 'var(--border)'}`, position: 'relative', transition: 'all 0.2s', flexShrink: 0 }}>
+              <div style={{ position: 'absolute', top: 1, left: useAuth ? 19 : 1, width: 16, height: 16, borderRadius: '50%', background: useAuth ? 'var(--bg)' : 'var(--text3)', transition: 'left 0.2s' }} />
             </div>
             <div>
               <div style={{ fontSize: 13 }}>Site requires Basic Auth</div>
@@ -191,7 +208,7 @@ export default function RecordReplay({ onBusyChange }: Props = {}) {
           </button>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: '#f8717111', border: '1px solid #f8717144', borderRadius: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'var(--fail-glow)', border: '1px solid var(--fail-border)', borderRadius: 10 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--fail)', animation: 'recpulse 1s ease-in-out infinite', flexShrink: 0 }} />
               <style>{`@keyframes recpulse{0%,100%{opacity:1}50%{opacity:0.2}}`}</style>
               <div>
@@ -204,8 +221,8 @@ export default function RecordReplay({ onBusyChange }: Props = {}) {
           </div>
         )}
 
-        {error && <div style={{ padding: '10px 12px', background: '#f8717111', border: '1px solid #f8717133', borderRadius: 8, color: 'var(--fail)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{error}</div>}
-        {message && <div style={{ padding: '10px 12px', background: '#4ade8011', border: '1px solid #4ade8033', borderRadius: 8, color: 'var(--pass)', fontSize: 12 }}>{message}</div>}
+        {error && <div style={{ padding: '10px 12px', background: 'var(--fail-glow)', border: '1px solid var(--fail-border)', borderRadius: 8, color: 'var(--fail)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{error}</div>}
+        {message && <div style={{ padding: '10px 12px', background: 'var(--pass-glow)', border: '1px solid var(--pass-border)', borderRadius: 8, color: 'var(--pass)', fontSize: 12 }}>{message}</div>}
       </div>
 
       {/* ── Right: recordings + live panels ── */}
@@ -238,16 +255,16 @@ export default function RecordReplay({ onBusyChange }: Props = {}) {
 
         {/* Replay progress */}
         {replaying && replayProgress && (
-          <div style={{ background: 'var(--surface)', border: '1px solid #c8f06933', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--accent-glow)', borderRadius: 10, overflow: 'hidden' }}>
             <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#c8f069', animation: 'recpulse 1s ease-in-out infinite' }} />
-                <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: '#c8f069' }}>REPLAYING — step {replayProgress.currentStep}/{replayProgress.totalSteps}</span>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', animation: 'recpulse 1s ease-in-out infinite' }} />
+                <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>REPLAYING — step {replayProgress.currentStep}/{replayProgress.totalSteps}</span>
               </div>
-              <button onClick={handleAbort} style={{ padding: '4px 12px', background: '#f8717122', border: '1px solid #f8717144', borderRadius: 6, color: 'var(--fail)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>■ STOP</button>
+              <button onClick={handleAbort} style={{ padding: '4px 12px', background: 'var(--fail-glow)', border: '1px solid var(--fail-border)', borderRadius: 6, color: 'var(--fail)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>■ STOP</button>
             </div>
             <div style={{ height: 3, background: 'var(--border)' }}>
-              <div style={{ height: '100%', background: '#c8f069', width: `${(replayProgress.currentStep / replayProgress.totalSteps) * 100}%`, transition: 'width 0.4s' }} />
+              <div style={{ height: '100%', background: 'var(--accent)', width: `${(replayProgress.currentStep / replayProgress.totalSteps) * 100}%`, transition: 'width 0.4s' }} />
             </div>
             <div style={{ padding: '8px 0', maxHeight: 180, overflowY: 'auto' }}>
               {replayProgress.stepResults.map((r: any, i: number) => (
@@ -264,7 +281,7 @@ export default function RecordReplay({ onBusyChange }: Props = {}) {
 
         {/* Replay result */}
         {replayResult && (
-          <div style={{ background: 'var(--surface)', border: `1px solid ${replayResult.status === 'passed' ? '#4ade8033' : '#f8717133'}`, borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ background: 'var(--surface)', border: `1px solid ${replayResult.status === 'passed' ? 'var(--pass-border)' : 'var(--fail-border)'}`, borderRadius: 10, overflow: 'hidden' }}>
             <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 13 }}>Result — {replayResult.plan.title}</span>
               <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: replayResult.status === 'passed' ? 'var(--pass)' : 'var(--fail)' }}>{replayResult.status.toUpperCase()}</span>
@@ -321,7 +338,7 @@ export default function RecordReplay({ onBusyChange }: Props = {}) {
                     {/* Buttons */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
                       {replaying === rec.id ? (
-                        <button onClick={handleAbort} style={{ padding: '7px 14px', background: '#f8717122', border: '1px solid #f8717144', borderRadius: 6, color: 'var(--fail)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>■ STOP</button>
+                        <button onClick={handleAbort} style={{ padding: '7px 14px', background: 'var(--fail-glow)', border: '1px solid var(--fail-border)', borderRadius: 6, color: 'var(--fail)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>■ STOP</button>
                       ) : (
                         <button onClick={() => handleReplay(rec.id)} disabled={!!replaying || isRecording || editingRecId === rec.id}
                           style={{ padding: '7px 14px', background: 'var(--accent)', border: 'none', borderRadius: 6, color: '#0f0f0f', fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, cursor: (replaying || isRecording || editingRecId === rec.id) ? 'not-allowed' : 'pointer', opacity: ((replaying && replaying !== rec.id) || editingRecId === rec.id) ? 0.4 : 1, whiteSpace: 'nowrap' }}>
@@ -337,7 +354,7 @@ export default function RecordReplay({ onBusyChange }: Props = {}) {
                             setEditedSteps([...rec.steps])
                           }
                         }}
-                        style={{ padding: '7px 14px', background: editingRecId === rec.id ? '#c8f06922' : 'transparent', border: `1px solid ${editingRecId === rec.id ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 6, color: editingRecId === rec.id ? 'var(--accent)' : 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>
+                        style={{ padding: '7px 14px', background: editingRecId === rec.id ? 'var(--accent-glow)' : 'transparent', border: `1px solid ${editingRecId === rec.id ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 6, color: editingRecId === rec.id ? 'var(--accent)' : 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>
                         {editingRecId === rec.id ? 'CLOSE' : '✎ EDIT'}
                       </button>
                       <button onClick={() => handleDelete(rec.id)} disabled={isRecording}

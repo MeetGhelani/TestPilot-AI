@@ -186,9 +186,9 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
   }
 
   const getScoreColor = (score: number) => {
-    if (score >= 90) return '#4ade80'
-    if (score >= 50) return '#fbbf24'
-    return '#f87171'
+    if (score >= 90) return 'var(--pass)'
+    if (score >= 50) return 'var(--warning)'
+    return 'var(--fail)'
   }
 
   const metricDescriptions: Record<string, string> = {
@@ -209,34 +209,34 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
     const num = parseFloat(valStr.replace(/[^0-9.]/g, ''));
 
     if (label === 'FCP') {
-      if (num <= 1800) return { color: '#4ade80', label: 'GOOD', limit: '≤ 1.8s' };
-      if (num <= 3000) return { color: '#fbbf24', label: 'N.I.', limit: '1.8-3s' };
-      return { color: '#f87171', label: 'POOR', limit: '> 3s' };
+      if (num <= 1800) return { color: 'var(--pass)', label: 'GOOD', limit: '≤ 1.8s' };
+      if (num <= 3000) return { color: 'var(--warning)', label: 'N.I.', limit: '1.8-3s' };
+      return { color: 'var(--fail)', label: 'POOR', limit: '> 3s' };
     }
     if (label === 'TBT') {
-      if (num <= 200) return { color: '#4ade80', label: 'GOOD', limit: '≤ 200ms' };
-      if (num <= 600) return { color: '#fbbf24', label: 'N.I.', limit: '200-600ms' };
-      return { color: '#f87171', label: 'POOR', limit: '> 600ms' };
+      if (num <= 200) return { color: 'var(--pass)', label: 'GOOD', limit: '≤ 200ms' };
+      if (num <= 600) return { color: 'var(--warning)', label: 'N.I.', limit: '200-600ms' };
+      return { color: 'var(--fail)', label: 'POOR', limit: '> 600ms' };
     }
     if (label === 'CLS') {
-      if (num <= 0.1) return { color: '#4ade80', label: 'GOOD', limit: '≤ 0.1' };
-      if (num <= 0.25) return { color: '#fbbf24', label: 'N.I.', limit: '0.1-0.25' };
-      return { color: '#f87171', label: 'POOR', limit: '> 0.25' };
+      if (num <= 0.1) return { color: 'var(--pass)', label: 'GOOD', limit: '≤ 0.1' };
+      if (num <= 0.25) return { color: 'var(--warning)', label: 'N.I.', limit: '0.1-0.25' };
+      return { color: 'var(--fail)', label: 'POOR', limit: '> 0.25' };
     }
     if (label === 'Memory Usage') {
-      if (num <= 50) return { color: '#4ade80', label: 'GOOD', limit: '≤ 50MB' };
-      if (num <= 150) return { color: '#fbbf24', label: 'MOD.', limit: '50-150MB' };
-      return { color: '#f87171', label: 'HEAVY', limit: '> 150MB' };
+      if (num <= 50) return { color: 'var(--pass)', label: 'GOOD', limit: '≤ 50MB' };
+      if (num <= 150) return { color: 'var(--warning)', label: 'MOD.', limit: '50-150MB' };
+      return { color: 'var(--fail)', label: 'HEAVY', limit: '> 150MB' };
     }
     if (label === 'DOM Nodes') {
-      if (num <= 1500) return { color: '#4ade80', label: 'GOOD', limit: '≤ 1.5k' };
-      if (num <= 3000) return { color: '#fbbf24', label: 'HEAVY', limit: '1.5-3k' };
-      return { color: '#f87171', label: 'V.HEAVY', limit: '> 3k' };
+      if (num <= 1500) return { color: 'var(--pass)', label: 'GOOD', limit: '≤ 1.5k' };
+      if (num <= 3000) return { color: 'var(--warning)', label: 'HEAVY', limit: '1.5-3k' };
+      return { color: 'var(--fail)', label: 'V.HEAVY', limit: '> 3k' };
     }
     if (label === 'Page Size') {
-      if (num <= 2) return { color: '#4ade80', label: 'GOOD', limit: '≤ 2MB' };
-      if (num <= 5) return { color: '#fbbf24', label: 'MOD.', limit: '2-5MB' };
-      return { color: '#f87171', label: 'HEAVY', limit: '> 5MB' };
+      if (num <= 2) return { color: 'var(--pass)', label: 'GOOD', limit: '≤ 2MB' };
+      if (num <= 5) return { color: 'var(--warning)', label: 'MOD.', limit: '2-5MB' };
+      return { color: 'var(--fail)', label: 'HEAVY', limit: '> 5MB' };
     }
     return null;
   };
@@ -284,11 +284,18 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
       responsive: true,
       plugins: {
         legend: { display: false },
-        title: { display: true, text: 'Performance Metrics Breakdown', color: '#fff' },
+        title: { display: true, text: 'Performance Metrics Breakdown', color: 'var(--text)' },
       },
       scales: {
-        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#888' } },
-        x: { grid: { display: false }, ticks: { color: '#888' } }
+        y: { 
+          beginAtZero: true, 
+          grid: { color: 'var(--border)' }, 
+          ticks: { color: 'var(--text3)' } 
+        },
+        x: { 
+          grid: { display: false }, 
+          ticks: { color: 'var(--text3)' } 
+        }
       }
     };
 
@@ -342,13 +349,15 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
         legend: {
           display: true,
           position: 'top' as const,
-          labels: { color: '#ccc', boxWidth: 12, font: { size: 10, weight: 'bold' } }
+          labels: { color: 'var(--text2)', boxWidth: 12, font: { size: 10, weight: 'bold' } }
         },
         title: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(0,0,0,0.8)',
+          backgroundColor: 'var(--surface2)',
           titleColor: 'var(--accent)',
-          bodyColor: '#fff',
+          bodyColor: 'var(--text)',
+          borderColor: 'var(--border)',
+          borderWidth: 1,
           padding: 12,
           cornerRadius: 10,
           displayColors: true
@@ -358,13 +367,13 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
         y: {
           min: 0,
           max: 100,
-          grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
-          ticks: { color: '#888', font: { size: 11, family: 'var(--font-mono)' } },
-          title: { display: true, text: 'Score', color: '#666', font: { size: 10 } }
+          grid: { color: 'var(--border)', drawBorder: false },
+          ticks: { color: 'var(--text3)', font: { size: 11, family: 'var(--font-mono)' } },
+          title: { display: true, text: 'Score', color: 'var(--text2)', font: { size: 10 } }
         },
         x: {
           grid: { display: false },
-          ticks: { color: '#aaa', font: { size: 11, weight: 'bold' } }
+          ticks: { color: 'var(--text2)', font: { size: 11, weight: 'bold' } }
         }
       }
     };
@@ -419,7 +428,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
         }}>{cat.score}</div>
       </div>
 
-      <div style={{ height: 6, background: '#222', borderRadius: 3, overflow: 'hidden' }}>
+      <div style={{ height: 6, background: 'var(--border2)', borderRadius: 3, overflow: 'hidden' }}>
         <div style={{
           height: '100%',
           width: `${cat.score}%`,
@@ -472,15 +481,15 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
 
         {title === 'Accessibility' && (
           <div style={{ display: 'flex', gap: 8, marginTop: -4, marginBottom: 12, fontSize: 12, fontWeight: 600 }}>
-            <span style={{ color: '#f87171' }}>Critical: {cat.issues.filter(i => i.severity === 'critical').length}</span>
-            <span style={{ color: '#fbbf24' }}>| Major: {cat.issues.filter(i => i.severity === 'high').length}</span>
+            <span style={{ color: 'var(--fail)' }}>Critical: {cat.issues.filter(i => i.severity === 'critical').length}</span>
+            <span style={{ color: 'var(--warning)' }}>| Major: {cat.issues.filter(i => i.severity === 'high').length}</span>
             <span style={{ color: 'var(--text3)' }}>| Minor: {cat.issues.filter(i => i.severity === 'moderate' || i.severity === 'low').length}</span>
           </div>
         )}
 
         <div style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: cat.status === 'passed' ? '#4ade80' : cat.status === 'warning' ? '#fbbf24' : '#f87171', fontSize: 16 }}>
+            <span style={{ color: cat.status === 'passed' ? 'var(--pass)' : cat.status === 'warning' ? 'var(--warning)' : 'var(--fail)', fontSize: 16 }}>
               {cat.status === 'passed' ? '✓' : '●'}
             </span>
             <span style={{ color: 'var(--text2)', fontWeight: 500 }}>
@@ -884,7 +893,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
           </button>
 
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-            <h1 style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)' }}>Site <em style={{ color: 'var(--accent)', fontFamily: 'var(--font-serif)' }}>Audit</em></h1>
+            <h1 style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)' }}>Site <em style={{ color: 'var(--accent)', fontFamily: 'var(--font-serif)', fontWeight: 500 }}>Audit</em></h1>
           </div>
           <p style={{ color: 'var(--text2)', marginBottom: 32 }}>Professional multi-dimensional QA & SEO verification engine.</p>
 
@@ -1124,13 +1133,13 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
 
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 40, animation: 'fadeIn 0.4s ease-out' }}>
-              <div style={{ background: 'linear-gradient(135deg, #111 0%, #1a1a1a 100%)', border: '1px solid #333', borderRadius: 20, padding: '36px 44px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: '36px 44px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
                 <div>
                   <div style={{ fontSize: 12, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12, fontWeight: 700 }}>
                     {result.comparisons && selectedComparisonId ? `Details: ${selectedComparisonId === 'lowEndMobile' ? 'Low-end Mobile' : selectedComparisonId.toUpperCase()}` : 'Overall Health Score'}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-                    <div style={{ fontSize: 64, fontWeight: 800, color: getScoreColor(displayResult.totalScore), lineHeight: 1 }}>{displayResult.totalScore}<span style={{ fontSize: 24, color: '#444' }}>/100</span></div>
+                    <div style={{ fontSize: 64, fontWeight: 800, color: getScoreColor(displayResult.totalScore), lineHeight: 1 }}>{displayResult.totalScore}<span style={{ fontSize: 24, color: 'var(--text3)' }}>/100</span></div>
                     {result.id && (
                       <button
                         onClick={async () => {
@@ -1209,8 +1218,8 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
               </div>
 
               {showA11yDetails && displayResult.categories.accessibility && (
-                <div ref={a11yRef} style={{ background: '#09090b', padding: 32, borderRadius: 24, border: '1px solid var(--accent)', boxShadow: '0 0 40px rgba(200, 240, 105, 0.1)', animation: 'fadeIn 0.4s ease-out' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid #222' }}>
+                <div ref={a11yRef} style={{ background: 'var(--surface)', padding: 32, borderRadius: 24, border: '1px solid var(--accent)', boxShadow: 'var(--accent-glow)', animation: 'fadeIn 0.4s ease-out' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
                     <h2 style={{ fontSize: 24, color: 'var(--text)', fontWeight: 700, margin: 0 }}>♿ Accessibility Audit Details</h2>
                     <button onClick={() => setShowA11yDetails(false)} style={{ background: 'transparent', border: '1px solid var(--fail)', color: 'var(--fail)', padding: '6px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 12 }}>COLLAPSE ✕</button>
                   </div>
@@ -1225,17 +1234,17 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                         return acc;
                       }, {})
                     ).map(([categoryName, issues]: any) => (
-                      <div key={categoryName} style={{ background: '#111', borderRadius: 16, border: '1px solid #222', overflow: 'hidden' }}>
-                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px 20px', borderBottom: '1px solid #222', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div key={categoryName} style={{ background: 'var(--surface2)', borderRadius: 16, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                        <div style={{ background: 'var(--surface2)', padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <h4 style={{ fontSize: 16, color: 'var(--text)', margin: 0, fontWeight: 600 }}>{categoryName}</h4>
-                          <span style={{ fontSize: 12, background: '#222', padding: '4px 10px', borderRadius: 12, color: 'var(--text2)', fontWeight: 600 }}>{issues.length} {issues.length === 1 ? 'Issue' : 'Issues'}</span>
+                          <span style={{ fontSize: 12, background: 'var(--surface)', padding: '4px 10px', borderRadius: 12, color: 'var(--text2)', fontWeight: 600 }}>{issues.length} {issues.length === 1 ? 'Issue' : 'Issues'}</span>
                         </div>
                         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
                           {issues.map((issue: any, i: number) => (
-                            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: i !== issues.length - 1 ? 16 : 0, borderBottom: i !== issues.length - 1 ? '1px dashed #333' : 'none' }}>
+                            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: i !== issues.length - 1 ? 16 : 0, borderBottom: i !== issues.length - 1 ? '1px dashed var(--border)' : 'none' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                                  <span style={{ color: issue.severity === 'critical' ? '#f87171' : issue.severity === 'high' ? '#fbbf24' : 'var(--text2)', fontSize: 18, marginTop: -2 }}>
+                                  <span style={{ color: issue.severity === 'critical' ? 'var(--fail)' : issue.severity === 'high' ? 'var(--warning)' : 'var(--text2)', fontSize: 18, marginTop: -2 }}>
                                     {issue.severity === 'critical' ? '⊗' : '⚠'}
                                   </span>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1244,7 +1253,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                                   </div>
                                 </div>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                  <span style={{ fontSize: 10, padding: '4px 8px', background: issue.severity === 'critical' ? '#411' : issue.severity === 'high' ? 'rgba(251, 191, 36, 0.1)' : '#222', color: issue.severity === 'critical' ? '#f87171' : issue.severity === 'high' ? '#fbbf24' : 'var(--text2)', borderRadius: 6, textTransform: 'uppercase', fontWeight: 800, border: `1px solid ${issue.severity === 'critical' ? '#f8717144' : issue.severity === 'high' ? '#fbbf2444' : '#333'}` }}>
+                                  <span style={{ fontSize: 10, padding: '4px 8px', background: issue.severity === 'critical' ? 'rgba(248,113,113,0.1)' : issue.severity === 'high' ? 'var(--warning-bg)' : 'var(--surface2)', color: issue.severity === 'critical' ? 'var(--fail)' : issue.severity === 'high' ? 'var(--warning)' : 'var(--text2)', borderRadius: 6, textTransform: 'uppercase', fontWeight: 800, border: `1px solid ${issue.severity === 'critical' ? 'var(--fail)' : issue.severity === 'high' ? 'var(--warning)' : 'var(--border)'}44` }}>
                                     {issue.severity}
                                   </span>
                                   {issue.helpUrl && (
@@ -1257,16 +1266,16 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                               {(issue.selector || issue.fix) && (
                                 <div style={{ marginTop: 8, marginLeft: 30, display: 'flex', gap: 16 }}>
                                   {issue.selector && (
-                                    <div style={{ flex: 1, background: '#0a0a0a', border: '1px solid #222', borderRadius: 8, padding: 12 }}>
+                                    <div style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
                                       <div style={{ fontSize: 10, color: 'var(--accent)',letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         Target Element
-                                        <button onClick={() => handleHighlight(issue.selector, issue.message)} style={{ background: 'transparent', border: '1px solid #f87171', color: '#f87171', fontSize: 10, cursor: 'pointer', padding: 5, borderRadius: 5, backgroundColor: '#f8717117' }}>Highlight</button>
+                                        <button onClick={() => handleHighlight(issue.selector, issue.message)} style={{ background: 'transparent', border: '1px solid var(--fail)', color: 'var(--fail)', fontSize: 10, cursor: 'pointer', padding: 5, borderRadius: 5, backgroundColor: 'rgba(248, 113, 113, 0.1)' }}>Highlight</button>
                                       </div>
-                                      <code style={{ fontSize: 11, color: '#fff', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{issue.selector}</code>
+                                      <code style={{ fontSize: 11, color: 'var(--text)', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{issue.selector}</code>
                                     </div>
                                   )}
                                   {issue.fix && (
-                                    <div style={{ flex: 1, background: 'rgba(200, 240, 105, 0.03)', border: '1px solid rgba(200, 240, 105, 0.15)', borderRadius: 8, padding: 12 }}>
+                                    <div style={{ flex: 1, background: 'var(--warning-bg)', border: '1px solid var(--warning)44', borderRadius: 8, padding: 12 }}>
                                       <div style={{ fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 6, fontWeight: 600, letterSpacing: '1px' }}>Suggested Fix</div>
                                       <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>{issue.fix}</div>
                                     </div>
@@ -1276,7 +1285,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
 
                               {/* General Recommendation Fallback */}
                               {!issue.fix && issue.recommendation && issue.recommendation !== issue.helpUrl && (
-                                <div style={{ marginLeft: 30, background: 'rgba(200,240,105,0.05)', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(200,240,105,0.1)' }}>
+                                <div style={{ marginLeft: 30, background: 'var(--accent-glow)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)' }}>
                                   <span style={{ color: 'var(--text)', fontSize: 13, lineHeight: 1.5 }}>{issue.recommendation}</span>
                                 </div>
                               )}
@@ -1295,18 +1304,18 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {Object.entries(displayResult.categories).map(([key, cat]) => (
                     cat && cat.issues.length > 0 && (
-                      <div key={key} style={{ background: '#0a0a0a', borderRadius: 16, padding: 24, border: '1px solid #1a1a1a' }}>
+                      <div key={key} style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, border: '1px solid var(--border)' }}>
                         <div style={{ fontSize: 11, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 20, fontWeight: 700 }}>{key} Issues ({cat!.issues.length})</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                           {cat.issues.map((issue, i) => (
-                            <div key={i} style={{ background: '#111', border: '1px solid #222', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div key={i} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                                  <span style={{ color: issue.type === 'error' ? '#f87171' : '#fbbf24', fontSize: 22 }}>{issue.type === 'error' ? '⊗' : '⚠'}</span>
+                                  <span style={{ color: issue.type === 'error' ? 'var(--fail)' : 'var(--warning)', fontSize: 22 }}>{issue.type === 'error' ? '⊗' : '⚠'}</span>
                                   <span style={{ color: 'var(--text)', fontWeight: 600, fontSize: 15 }}>{issue.message}</span>
-                                  <span style={{ fontSize: 9, padding: '2px 6px', background: issue.severity === 'critical' ? '#411' : '#222', color: issue.severity === 'critical' ? '#f87171' : 'var(--text2)', borderRadius: 4, textTransform: 'uppercase' }}>{issue.severity}</span>
+                                  <span style={{ fontSize: 9, padding: '2px 6px', background: issue.severity === 'critical' ? 'rgba(248,113,113,0.1)' : 'var(--surface)', color: issue.severity === 'critical' ? 'var(--fail)' : 'var(--text2)', borderRadius: 4, textTransform: 'uppercase', border: '1px solid var(--border)' }}>{issue.severity}</span>
                                   {issue.confidence && (
-                                    <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(255,255,255,0.05)', color: 'var(--text3)', borderRadius: 4, textTransform: 'uppercase', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <span style={{ fontSize: 9, padding: '2px 6px', background: 'var(--surface)', color: 'var(--text3)', borderRadius: 4, textTransform: 'uppercase', border: '1px solid var(--border)' }}>
                                       Confidence: {issue.confidence}
                                     </span>
                                   )}
@@ -1315,14 +1324,14 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                                   {issue.selector && (
                                     <button
                                       onClick={() => handleHighlight(issue.selector!, issue.message)}
-                                      style={{ background: 'rgba(248, 113, 113, 0.1)', color: '#f87171', fontSize: 10, fontWeight: 700, textDecoration: 'none', border: '1px solid #f87171', padding: '4px 12px', borderRadius: 6, cursor: 'pointer' }}
+                                      style={{ background: 'rgba(248, 113, 113, 0.1)', color: 'var(--fail)', fontSize: 10, fontWeight: 700, textDecoration: 'none', border: '1px solid var(--fail)', padding: '4px 12px', borderRadius: 6, cursor: 'pointer' }}
                                     >HIGHLIGHT</button>
                                   )}
                                   {issue.url && <a href={issue.url} target="_blank" style={{ color: 'var(--accent)', fontSize: 11, fontWeight: 700, textDecoration: 'none', border: '1px solid var(--accent)', padding: '4px 10px', borderRadius: 6 }}>OPEN LINK</a>}
                                 </div>
                               </div>
                               {issue.impact && <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}><span style={{ color: 'var(--text3)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', marginTop: 3 }}>Impact</span><span style={{ color: 'var(--text2)', fontSize: 14 }}>{issue.impact}</span></div>}
-                              {issue.recommendation && <div style={{ background: 'rgba(200,240,105,0.05)', padding: '12px 16px', borderRadius: 8, border: '1px solid rgba(200,240,105,0.1)', display: 'flex', gap: 10, alignItems: 'flex-start' }}><span style={{ color: 'var(--accent)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', marginTop: 3 }}>Fix</span><span style={{ color: 'var(--text)', fontSize: 14, lineHeight: 1.5 }}>{issue.recommendation}</span></div>}
+                              {issue.recommendation && <div style={{ background: 'var(--warning-bg)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--warning)44', display: 'flex', gap: 10, alignItems: 'flex-start' }}><span style={{ color: 'var(--warning)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', marginTop: 3 }}>Fix</span><span style={{ color: 'var(--text)', fontSize: 14, lineHeight: 1.5 }}>{issue.recommendation}</span></div>}
                             </div>
                           ))}
                         </div>

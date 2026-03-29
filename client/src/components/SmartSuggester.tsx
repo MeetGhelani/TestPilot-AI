@@ -23,7 +23,7 @@ interface TestResult {
 }
 
 const PRIORITY_COLOR = { high: 'var(--fail)', medium: 'var(--accent)', low: 'var(--text3)' }
-const PRIORITY_BG = { high: '#f8717111', medium: '#c8f06911', low: 'var(--surface2)' }
+const PRIORITY_BG = { high: 'var(--fail-glow)', medium: 'var(--accent-glow)', low: 'var(--surface2)' }
 const CATEGORY_LABELS: Record<string, string> = {
   auth: 'Auth', navigation: 'Navigation', form: 'Forms',
   search: 'Search', ecommerce: 'E-commerce', content: 'Content', ui: 'UI'
@@ -159,7 +159,7 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
     setEditingId(null)
   }
 
-  const inp: React.CSSProperties = { width: '100%', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 8, padding: '10px 12px', color: 'var(--text)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none' }
+  const inp: React.CSSProperties = { width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none' }
   const lbl: React.CSSProperties = { fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, display: 'block' }
 
   const categories = activeResult ? ['all', ...Array.from(new Set(activeResult.suggestions.map(s => s.category)))] : []
@@ -170,8 +170,8 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
 
       {/* Running overlay — dims whole panel while test runs */}
       {running && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, backdropFilter: 'blur(2px)' }}>
-          <div style={{ width: 44, height: 44, border: '3px solid #333', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--glass)', zIndex: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, backdropFilter: 'blur(10px)' }}>
+          <div style={{ width: 44, height: 44, border: '3px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
           <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--accent)', fontWeight: 500, letterSpacing: 1 }}>RUNNING TEST</div>
@@ -183,7 +183,7 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
       {/* ── Left panel ── */}
       <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 400, lineHeight: 1.2 }}>Smart test<br /><em style={{ color: 'var(--accent)' }}>suggester</em></h1>
+          <h1 style={{ fontSize: 28, fontWeight: 600,   lineHeight: 1.2 }}>Smart test<br /><em style={{ color: 'var(--accent)', fontFamily: 'var(--font-serif)', fontWeight: 500 }}>suggester</em></h1>
           <p style={{ color: 'var(--text2)', fontSize: 12, marginTop: 6 }}>Scans your site — tells you exactly what to test.</p>
         </div>
 
@@ -305,10 +305,10 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <span style={{ padding: '3px 10px', background: '#f8717122', color: 'var(--fail)', borderRadius: 20, fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+                <span style={{ padding: '3px 10px', background: 'var(--fail-glow)', color: 'var(--fail)', borderRadius: 20, fontSize: 10, fontFamily: 'var(--font-mono)' }}>
                   {activeResult.suggestions.filter(s => s.priority === 'high').length} HIGH
                 </span>
-                <span style={{ padding: '3px 10px', background: '#c8f06911', color: 'var(--accent)', borderRadius: 20, fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+                <span style={{ padding: '3px 10px', background: 'var(--accent-glow)', color: 'var(--accent)', borderRadius: 20, fontSize: 10, fontFamily: 'var(--font-mono)' }}>
                   {activeResult.suggestions.filter(s => s.priority === 'medium').length} MED
                 </span>
               </div>
@@ -414,7 +414,7 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
                     {/* Action bar */}
                     <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end', background: 'var(--surface2)' }}>
                       <button onClick={() => handleCopy(sug, isEditing ? editText : undefined)}
-                        style={{ padding: '6px 14px', background: copiedId === sug.id ? '#4ade8022' : 'transparent', border: `1px solid ${copiedId === sug.id ? '#4ade8044' : 'var(--border2)'}`, borderRadius: 6, color: copiedId === sug.id ? 'var(--pass)' : 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', transition: 'all 0.2s' }}>
+                        style={{ padding: '6px 14px', background: copiedId === sug.id ? 'var(--pass-glow)' : 'transparent', border: `1px solid ${copiedId === sug.id ? 'var(--pass-border)' : 'var(--border)'}`, borderRadius: 6, color: copiedId === sug.id ? 'var(--pass)' : 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', transition: 'all 0.2s' }}>
                         {copiedId === sug.id ? '✓ COPIED' : 'COPY'}
                       </button>
                       <button onClick={() => handleRun(sug, isEditing ? editText : undefined)} disabled={runningId === sug.id}
