@@ -26,10 +26,19 @@ ChartJS.register(
 );
 
 interface AuditPanelProps {
-  onBusyChange: (busy: boolean) => void
+  onBusyChange: (busy: boolean) => void;
+  theme: 'dark' | 'light';
 }
 
-export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
+export default function AuditPanel({ onBusyChange, theme }: AuditPanelProps) {
+  const isDark = theme === 'dark';
+  const themeColors = {
+    text: isDark ? '#f1f5f9' : '#1e293b',
+    text2: isDark ? '#94a3b8' : '#475569',
+    text3: isDark ? '#64748b' : '#94a3b8',
+    border: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    surface: isDark ? '#111' : '#ffffff',
+  };
   const [url, setUrl] = useState('')
   const [useAuth, setUseAuth] = useState(false)
   const [authUser, setAuthUser] = useState('')
@@ -95,6 +104,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
 
   useEffect(() => {
     fetchAudits()
+    return () => onBusyChange(false)
   }, [])
 
   const handleAudit = async () => {
@@ -284,17 +294,32 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
       responsive: true,
       plugins: {
         legend: { display: false },
-        title: { display: true, text: 'Performance Metrics Breakdown', color: 'var(--text)' },
+        title: { 
+          display: true, 
+          text: 'Performance Metrics Breakdown', 
+          color: themeColors.text,
+          font: { size: 13, weight: 'bold' as const }
+        },
+        tooltip: {
+          backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
+          titleColor: themeColors.text,
+          bodyColor: themeColors.text,
+          borderColor: themeColors.border,
+          borderWidth: 1,
+          padding: 12,
+          cornerRadius: 10,
+          displayColors: true
+        }
       },
       scales: {
         y: { 
           beginAtZero: true, 
-          grid: { color: 'var(--border)' }, 
-          ticks: { color: 'var(--text3)' } 
+          grid: { color: themeColors.border }, 
+          ticks: { color: themeColors.text3 } 
         },
         x: { 
           grid: { display: false }, 
-          ticks: { color: 'var(--text3)' } 
+          ticks: { color: themeColors.text3 } 
         }
       }
     };
@@ -349,14 +374,14 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
         legend: {
           display: true,
           position: 'top' as const,
-          labels: { color: 'var(--text2)', boxWidth: 12, font: { size: 10, weight: 'bold' } }
+          labels: { color: themeColors.text2, boxWidth: 12, font: { size: 10, weight: 'bold' } }
         },
         title: { display: false },
         tooltip: {
-          backgroundColor: 'var(--surface2)',
+          backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
           titleColor: 'var(--accent)',
-          bodyColor: 'var(--text)',
-          borderColor: 'var(--border)',
+          bodyColor: themeColors.text,
+          borderColor: themeColors.border,
           borderWidth: 1,
           padding: 12,
           cornerRadius: 10,
@@ -367,13 +392,13 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
         y: {
           min: 0,
           max: 100,
-          grid: { color: 'var(--border)', drawBorder: false },
-          ticks: { color: 'var(--text3)', font: { size: 11, family: 'var(--font-mono)' } },
-          title: { display: true, text: 'Score', color: 'var(--text2)', font: { size: 10 } }
+          grid: { color: themeColors.border, drawBorder: false },
+          ticks: { color: themeColors.text3, font: { size: 11, family: 'var(--font-mono)' } },
+          title: { display: true, text: 'Score', color: themeColors.text2, font: { size: 10 } }
         },
         x: {
           grid: { display: false },
-          ticks: { color: 'var(--text2)', font: { size: 11, weight: 'bold' } }
+          ticks: { color: themeColors.text2, font: { size: 11, weight: 'bold' } }
         }
       }
     };
@@ -390,7 +415,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
         <div style={{
           fontSize: 12,
           fontWeight: 800,
-          color: 'var(--text2)',
+          color: themeColors.text2,
           textTransform: 'uppercase',
           letterSpacing: 2,
           marginBottom: 20,
@@ -654,7 +679,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
 
       {/* Sidebar History */}
       {showHistory && (
-        <div style={{ width: 330, flexShrink: 0, borderRight: '1px solid var(--border)', paddingRight: 20, display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div style={{ width: 350, flexShrink: 0, borderRight: '1px solid var(--border)', paddingRight: 20, display: 'flex', flexDirection: 'column', gap: 24, position: 'sticky', top: 112, alignSelf: 'flex-start' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
             <h3 style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text1)', textTransform: 'uppercase', letterSpacing: 1.5, margin: 0 }}>Recent Audits</h3>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -719,7 +744,7 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
               )}
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
+          <div className="custom-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', maxHeight: 'calc(100vh - 220px)', paddingRight: 4 }}>
             {history.length === 0 ? (
               <p style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>No previous audits.</p>
             ) : (
@@ -767,7 +792,8 @@ export default function AuditPanel({ onBusyChange }: AuditPanelProps) {
                     position: 'relative',
                     overflow: 'hidden',
                     height: 76,
-                    marginBottom: 4
+                    marginBottom: 4,
+                    flexShrink: 0
                   }}
                   onMouseEnter={e => {
                     if (!isEditing && result?.id !== item.id) {

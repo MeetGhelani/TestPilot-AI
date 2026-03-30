@@ -1,5 +1,4 @@
 import type { Platform, TestPlan, TestStep } from '../types/index';
-import { loadSelectors } from '../scanner/siteScanner';
 import * as path from 'path';
 
 // ─── Token helpers ────────────────────────────────────────────────────────────
@@ -200,13 +199,6 @@ export async function generateTestPlan(
   platform: Platform,
   target: string
 ): Promise<TestPlan> {
-  // Merge saved site-specific selectors into the semantic map
-  const saved = loadSelectors(path.join(process.cwd(), 'reports'));
-  Object.entries(saved).forEach(([key, sel]) => {
-    SEMANTIC_SELECTORS[key.replace(/_/g, ' ')] = sel;
-    SEMANTIC_SELECTORS[key] = sel;
-  });
-
   const sentences = splitSentences(naturalLanguage);
   const steps: TestStep[] = [];
 

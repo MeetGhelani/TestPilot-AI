@@ -8,6 +8,7 @@ export type StepAction =
   | 'navigate'
   | 'click'
   | 'fill'
+  | 'press'
   | 'select'
   | 'hover'
   | 'scroll'
@@ -16,18 +17,29 @@ export type StepAction =
   | 'assert_visible'
   | 'assert_url'
   | 'assert_title'
+  | 'assert' // New consolidated assertion type
   | 'screenshot';
 
 export interface TestStep {
   action: StepAction;
-  /** CSS selector, role, label, or accessibility id */
-  target?: string;
+  /** CSS selector, role, label, or complex target object { primary, fallback } */
+  target?: string | { primary: string; fallback: string[] };
   /** Value to type, URL to navigate to, or text to assert */
   value?: string;
   /** Human-readable description shown in reports */
   description: string;
+  /** Intent metadata for AI and debugging (e.g., 'login_submit') */
+  intent?: string;
+  /** Step-specific timeout override in Ms */
+  timeout?: number;
+  /** Step-specific retry count override */
+  retries?: number;
   /** If true, the test continues even if this step fails */
   optional?: boolean;
+  /** Frame context if the element is inside an iframe (e.g., 'frame_0' or '#stripe-frame') */
+  frame?: string;
+  /** Sub-type for 'assert' action: 'visible' | 'text' | 'url' */
+  assertType?: 'visible' | 'text' | 'url';
 }
 
 // ─── Generated Test Plan ──────────────────────────────────────────────────────
@@ -39,6 +51,8 @@ export interface TestPlan {
   /** The original natural language instruction */
   naturalLanguageInput: string;
   steps: TestStep[];
+  /** Schema version for backward compatibility */
+  version?: number;
 }
 
 // ─── Step Result ─────────────────────────────────────────────────────────────
@@ -52,6 +66,10 @@ export interface StepResult {
   message?: string;
   /** File path to screenshot, if captured */
   screenshotPath?: string;
+  /** Captured network errors during this step (status >= 400) */
+  networkErrors?: Array<{ url: string; status: number; statusText: string }>;
+  /** Selection trace for debugging (which strategy was used) */
+  selectionTrace?: string;
 }
 
 // ─── Test Result ─────────────────────────────────────────────────────────────

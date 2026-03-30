@@ -8,22 +8,50 @@ import LandingPage from './components/LandingPage'
 import Navbar from './components/Navbar'
 import AuthPage from './components/AuthPage'
 import SettingsPage from './components/SettingsPage'
+import DocsPage from './components/DocsPage'
 import ResetPassword from './components/ResetPassword'
 import { supabase } from '../../lib/supabase'
 
 export type Platform = 'web' | 'mobile' | 'desktop'
 
 export interface StepResult {
-  step: { action: string; target?: string; value?: string; description: string; optional?: boolean }
-  status: 'passed' | 'failed' | 'skipped'
+  step: { 
+    action: string; 
+    target?: string | { primary: string; fallback: string[] }; 
+    value?: string; 
+    description: string; 
+    intent?: string;
+    optional?: boolean;
+    frame?: string;
+    assertType?: 'visible' | 'text' | 'url';
+  }
+  status: 'passed' | 'failed' | 'skipped' | 'blocked'
   durationMs: number
   error?: string
+  message?: string
   screenshotPath?: string
+  networkErrors?: Array<{ url: string; status: number; statusText: string }>
+  selectionTrace?: string
 }
 
 export interface TestResult {
   id?: string;
-  plan: { title: string; platform: string; naturalLanguageInput: string; steps: { action: string; target?: string; value?: string; description: string; optional?: boolean }[] }
+  plan: { 
+    title: string; 
+    platform: string; 
+    naturalLanguageInput: string; 
+    steps: { 
+      action: string; 
+      target?: string | { primary: string; fallback: string[] }; 
+      value?: string; 
+      description: string; 
+      intent?: string;
+      optional?: boolean;
+      frame?: string;
+      assertType?: 'visible' | 'text' | 'url';
+    }[];
+    version?: number;
+  }
   status: 'passed' | 'failed' | 'error'
   stepResults: StepResult[]
   totalDurationMs: number
@@ -60,7 +88,7 @@ export interface AuditResult {
 
 export type HistoryItem = TestResult | AuditResult
 
-type TabId = 'home' | 'history' | 'record' | 'suggest' | 'audit' | 'settings'
+type TabId = 'home' | 'history' | 'record' | 'suggest' | 'audit' | 'settings' | 'docs'
 
 export default function App() {
   const navigate = useNavigate()
@@ -78,6 +106,7 @@ export default function App() {
   const [session, setSession] = useState<any>(null)
   const [isSessionLoading, setIsSessionLoading] = useState(true)
   const [showScrollTop, setShowScrollTop] = useState(false)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
 
   const switchTab = (tab: TabId) => {
     if (globalBusy) return
@@ -128,7 +157,14 @@ export default function App() {
     // Reset scroll position and show-scroll state when tab changes
     window.scrollTo(0, 0);
     setShowScrollTop(false);
-  }, [activeTab]);
+
+    // Auth Guard: If not authenticated and trying to access an app tab, go home
+    // (Except for 'home' and 'docs' which are public)
+    const publicTabs: TabId[] = ['home', 'docs'];
+    if (!isSessionLoading && !session && !publicTabs.includes(activeTab)) {
+      switchTab('home');
+    }
+  }, [activeTab, session, isSessionLoading]);
 
   useEffect(() => {
     // Get initial session
@@ -141,8 +177,14 @@ export default function App() {
       console.log('Auth state event:', event, session?.user?.email);
       setSession(session);
       
-      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-        handleAuthSuccess();
+      // Only redirect on SIGNED_IN if it's a social login redirect (has tokens in URL)
+      // Regular logins are handled explicitly via handleAuthSuccess called from the AuthPage
+      if (session && event === 'SIGNED_IN') {
+        const isSocialRedirect = window.location.hash.includes('access_token') || 
+                               window.location.search.includes('code=');
+        if (isSocialRedirect) {
+          handleAuthSuccess();
+        }
       }
 
       if (event === 'PASSWORD_RECOVERY') {
@@ -257,26 +299,39 @@ export default function App() {
               </div>
             ) : activeTab === 'record' ? (
               <div style={{ flex: 1, padding: '40px 0' }}>
-                <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 40px' }}>
-                  <RecordReplay onBusyChange={setGlobalBusy} />
+                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }}>
+                  <RecordReplay onBusyChange={setGlobalBusy} switchTab={switchTab} setHighlightId={setHighlightId} />
                 </div>
               </div>
             ) : activeTab === 'suggest' ? (
               <div style={{ flex: 1, padding: '40px 0' }}>
-                <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 40px' }}>
-                  <SmartSuggester onBusyChange={setGlobalBusy} />
+                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }}>
+                  <SmartSuggester onBusyChange={setGlobalBusy} switchTab={switchTab} setHighlightId={setHighlightId} />
                 </div>
               </div>
             ) : activeTab === 'audit' ? (
               <div style={{ flex: 1, padding: '40px 0' }}>
-                <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 40px' }}>
-                  <AuditPanel onBusyChange={setGlobalBusy} />
+                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }}>
+                  <AuditPanel onBusyChange={setGlobalBusy} theme={theme} />
                 </div>
               </div>
             ) : activeTab === 'history' ? (
               <div style={{ flex: 1, padding: '40px 0' }}>
-                <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 40px' }}>
-                  <HistoryPanel history={history} onClear={handleClearHistory} onDeleteItem={handleDeleteHistoryItem} onDeleteItems={handleDeleteMultipleHistoryItems} />
+                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }}>
+                  <HistoryPanel 
+                    history={history} 
+                    onClear={handleClearHistory} 
+                    onDeleteItem={handleDeleteHistoryItem} 
+                    onDeleteItems={handleDeleteMultipleHistoryItems} 
+                    highlightId={highlightId}
+                    setHighlightId={setHighlightId}
+                  />
+                </div>
+              </div>
+            ) : activeTab === 'docs' ? (
+              <div style={{ flex: 1, padding: '40px 0', background: '#0B0F0C' }}>
+                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }}>
+                  <DocsPage theme={theme} />
                 </div>
               </div>
             ) : (

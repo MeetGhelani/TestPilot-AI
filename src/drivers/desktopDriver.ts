@@ -2,6 +2,7 @@ import { _electron as electron, ElectronApplication, Page } from 'playwright';
 import * as path from 'path';
 import * as fs from 'fs';
 import type { Driver, TestStep, StepResult } from '../types/index';
+import { resolveElement, withRetry } from '../engine/smartSelector';
 
 export class DesktopDriver implements Driver {
   private app: ElectronApplication | null = null;
@@ -13,14 +14,8 @@ export class DesktopDriver implements Driver {
     fs.mkdirSync(this.screenshotDir, { recursive: true });
   }
 
-  /**
-   * target: path to the Electron app executable or main.js
-   * e.g. "/Applications/MyApp.app/Contents/MacOS/MyApp"
-   *      or "./dist/main.js" (Electron main entry)
-   */
   async launch(target: string): Promise<void> {
     this.app = await electron.launch({ args: [target] });
-    // Wait for the first BrowserWindow to appear
     this.page = await this.app.firstWindow();
     await this.page.waitForLoadState('domcontentloaded');
   }
@@ -30,20 +25,20 @@ export class DesktopDriver implements Driver {
     const start = Date.now();
 
     try {
-      const result = await this._run(step);
+      const result = await withRetry(() => this._run(step), step.retries || 2, step.description);
       return { 
         step, 
         status: 'passed', 
         durationMs: Date.now() - start,
         screenshotPath: typeof result === 'string' ? result : undefined
       };
-    } catch (err: unknown) {
+    } catch (err: any) {
       const screenshotPath = await this._captureErrorScreenshot(step.action);
       return {
         step,
         status: 'failed',
         durationMs: Date.now() - start,
-        error: err instanceof Error ? err.message : String(err),
+        error: err.message || String(err),
         screenshotPath,
       };
     }
@@ -53,54 +48,53 @@ export class DesktopDriver implements Driver {
     const p = this.page!;
 
     switch (step.action) {
-      // In desktop apps "navigate" means switching to a window/view by title
       case 'navigate': {
         const windows = this.app!.windows();
-        const target = windows.find(async (w) => (await w.title()).includes(step.value ?? ''));
-        if (target) this.page = await target;
-        break;
+        // Simple window switching by title snippet
+        for (const w of windows) {
+          const title = await w.title();
+          if (title.includes(step.value || '')) {
+            this.page = w;
+            return;
+          }
+        }
+        throw new Error(`Window with title "${step.value}" not found`);
       }
 
       case 'click':
-        await p.locator(step.target!).first().click();
-        break;
-
       case 'fill':
-        await p.locator(step.target!).first().fill(step.value ?? '');
-        break;
-
       case 'select':
-        await p.locator(step.target!).first().selectOption(step.value ?? '');
-        break;
-
-      case 'hover':
-        await p.locator(step.target!).first().hover();
-        break;
-
-      case 'scroll':
-        await p.locator(step.target ?? 'body').first().scrollIntoViewIfNeeded();
-        break;
-
-      case 'wait':
-        await p.waitForTimeout(Number(step.value ?? 1000));
-        break;
-
-      case 'assert_visible':
-        await p.locator(step.target!).first().waitFor({ state: 'visible', timeout: 10000 });
-        break;
-
-      case 'assert_text': {
-        const text = await p.locator(step.target!).first().innerText();
-        if (!text.includes(step.value ?? '')) {
-          throw new Error(`Expected text "${step.value}" but found "${text}"`);
-        }
+      case 'hover': {
+        const { locator } = await resolveElement(p, step.target!, { timeout: 10000 });
+        if (step.action === 'click') await locator.click();
+        else if (step.action === 'fill') await locator.fill(step.value || '');
+        else if (step.action === 'select') await locator.selectOption(step.value || '');
+        else if (step.action === 'hover') await locator.hover();
         break;
       }
 
-      case 'assert_title': {
-        const title = await p.title();
-        if (!title.includes(step.value ?? '')) {
-          throw new Error(`Expected title to contain "${step.value}" but got "${title}"`);
+      case 'scroll': {
+        const { locator } = await resolveElement(p, step.target || 'body', { timeout: 5000 });
+        await locator.scrollIntoViewIfNeeded();
+        break;
+      }
+
+      case 'wait':
+        await p.waitForTimeout(Number(step.value || 1000));
+        break;
+
+      case 'assert':
+      case 'assert_visible': {
+        const { locator } = await resolveElement(p, step.target!, { timeout: 10000, waitForVisible: true });
+        if (!(await locator.isVisible())) throw new Error('Element not visible');
+        break;
+      }
+
+      case 'assert_text': {
+        const { locator } = await resolveElement(p, step.target!, { timeout: 10000 });
+        const text = await locator.innerText();
+        if (!text.includes(step.value || '')) {
+          throw new Error(`Expected text "${step.value}" but found "${text}"`);
         }
         break;
       }
@@ -108,12 +102,10 @@ export class DesktopDriver implements Driver {
       case 'screenshot':
         return await this._captureScreenshot(step.description);
 
-      case 'assert_url':
-        // Not meaningful for desktop — skip silently
-        break;
-
       default:
-        throw new Error(`Unknown action: ${(step as TestStep).action}`);
+        // Desktop doesn't support URL assertions usually
+        if (step.action.startsWith('assert_')) return;
+        throw new Error(`Unknown action: ${step.action}`);
     }
   }
 

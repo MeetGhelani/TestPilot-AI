@@ -579,7 +579,7 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
           });
 
           const axeViolations = axeResults.violations || [];
-          
+
           // C. Custom Headings Check (Hierarchy)
           const headingAudit = await page.evaluate(() => {
             const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'));
@@ -607,18 +607,18 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
           const keyboardAudit = await page.evaluate(async () => {
             const results: any[] = [];
             const interactive = Array.from(document.querySelectorAll('button, a, input, select, textarea, [tabindex]:not([tabindex="-1"])'))
-                                    .filter(el => {
-                                      const style = window.getComputedStyle(el);
-                                      return style.display !== 'none' && style.visibility !== 'hidden' && (el as any).offsetWidth > 0;
-                                    });
-            
+              .filter(el => {
+                const style = window.getComputedStyle(el);
+                return style.display !== 'none' && style.visibility !== 'hidden' && (el as any).offsetWidth > 0;
+              });
+
             // Check for focus visibility on a sample
             for (let i = 0; i < Math.min(5, interactive.length); i++) {
               (interactive[i] as HTMLElement).focus();
               const style = window.getComputedStyle(interactive[i]);
               const hasOutline = style.outlineStyle !== 'none' && parseInt(style.outlineWidth) > 0;
               const hasBoxShadow = style.boxShadow !== 'none';
-              
+
               if (!hasOutline && !hasBoxShadow) {
                 results.push({
                   message: `Focus indicator not visible on interactive element`,
@@ -641,9 +641,9 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
               severity: v.impact === 'critical' ? 'critical' : v.impact === 'serious' ? 'high' : 'moderate',
               impact: v.description,
               recommendation: v.helpUrl,
-              category: v.tags.includes('color') ? 'Color & Contrast' : 
-                        v.tags.includes('aria') ? 'ARIA & Screen Readers' :
-                        v.tags.includes('language') ? 'Text & Labels' : 'Structure & Semantics',
+              category: v.tags.includes('color') ? 'Color & Contrast' :
+                v.tags.includes('aria') ? 'ARIA & Screen Readers' :
+                  v.tags.includes('language') ? 'Text & Labels' : 'Structure & Semantics',
               helpUrl: v.helpUrl,
               fix: v.nodes[0]?.failureSummary,
               selector: v.nodes[0]?.target[0]
@@ -982,7 +982,7 @@ export async function runFullAudit(url: string, options: AuditOptions = {}): Pro
     result.categories.console.score,
     result.categories.performance.score
   ];
-  
+
   if (result.categories.accessibility) scores.push(result.categories.accessibility.score);
   if (result.categories.seo) scores.push(result.categories.seo.score);
 

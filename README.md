@@ -35,9 +35,10 @@ Record real browser interactions and replay them automatically.
 5. Watch steps appear in real time in the UI
 6. Click **■ STOP & SAVE** — steps are saved permanently
 
-**Replay:**
-- Click **▶ REPLAY** — Chrome opens and executes all steps with a live overlay
-- Watch the progress bar and step-by-step results in the UI
+**Replay & Execution:**
+- Click **▶ REPLAY** — Chrome opens and executes all steps with a live, status-aware overlay
+- **Structured Execution**: Supports both natural language steps (AI-parsed) and pre-structured JSON flows (instant)
+- Watch the progress bar and real-time step results in the side panel
 - Click **■ STOP** to abort mid-replay
 
 **Edit Steps:**
@@ -53,29 +54,28 @@ Record real browser interactions and replay them automatically.
 ---
 
 ### Smart Test Suggester
-Scans your site and suggests exactly what to test — no guessing.
+Deep-scans your site using a multi-strategy engine to generate **logical, execution-ready test flows**.
 
-1. Enter a **site name** (optional label) and URL
-2. Toggle Basic Auth if needed
+1. Enter a **site name** and target URL
+2. Toggle Basic Auth if the site is behind a staging popup
 3. Click **⌕ SCAN & SUGGEST**
-4. Playwright visits up to 5 pages and detects:
-   - Login forms, signup buttons
-   - Navigation links (individual tests per link)
-   - Search bars
-   - Shopping cart, product grids
-   - Contact / inquiry forms
-   - CTA buttons
-   - Hero banners, header, footer
-5. Suggestions appear grouped by category with **HIGH / MED / LOW** priority
-6. Each suggestion shows:
-   - What to test and why it matters
-   - The exact test description pre-written
-   - **▶ RUN TEST** — runs inline, results appear under the card
-   - **✎ EDIT** — customise the test description before running
-   - **COPY** — copy to clipboard
-7. Scans are **saved automatically** — reopen anytime without re-scanning
-8. **Rename** any saved scan with the ✎ pencil icon
-9. **Delete** saved scans with the × button (confirmation popup)
+4. The Smart Engine performs a **Deep Scan** to detect:
+   - **Auth Flows**: Logical sequences for Login/Signup with success/failure paths.
+   - **Search Flows**: Query input and result verification sequences.
+   - **Form Flows**: Multi-field submission sequences with specific success assertions.
+   - **Navigation Path**: Key landing pages and core menu links.
+   - **Success Indicators**: Automatically detects "Logout", "Dashboard", or "Welcome" nodes to build reliable assertions.
+5. Suggestions are ranked by **Priority** (High/Medium/Low) and **Confidence Breakdown**:
+   - **DET (Detection)**: How likely this is a critical user flow.
+   - **SEL (Selector)**: Stability score for the primary target element.
+   - **OUT (Outcome)**: Reliability of the generated success assertion.
+6. Each suggestion features:
+   - **Flow Visualization**: Step-by-step breakdown of actions (Navigate, Fill, Click, Assert).
+   - **Why Test This?**: Business context and impact of failure.
+   - **▶ RUN TEST**: Executes the structured flow instantly with high reliability.
+   - **COPY**: Export the raw JSON steps for use in custom scripts or documentation.
+7. **Parameterized Data**: Supports `{{user.email}}` and `{{user.password}}` variables for immediate use with test accounts.
+8. Scans are **persisted locally** — return anytime to re-run or review suggestions.
 
 ---
 
@@ -176,6 +176,7 @@ Write natural English — separate steps with commas:
 |---|---|
 | `verify header is visible` | Asserts header element is visible |
 | `fill #email with 'user@test.com'` | Types into the email field |
+| `press Enter` | Simulates a keyboard 'Enter' press |
 | `click sign in button` | Clicks the sign in button |
 | `scroll to bottom` | Scrolls page to bottom |
 | `wait 2000` | Waits 2 seconds |
@@ -194,12 +195,13 @@ fill #username with 'student', fill #password with 'Password123', click #submit,
 
 Every test step uses a smart execution engine:
 
-- **Multi-selector fallback** — tries 5–8 selector strategies per element (id → data-testid → aria-label → name → placeholder → text → xpath)
-- **Auto-healing** — if all selectors fail, scans the DOM and fuzzy-matches the closest element
-- **Retry logic** — every step retried up to 3 times with backoff before failing
-- **Smart waits** — waits for network idle after navigation, not fixed timeouts
-- **Framework detection** — detects React/Vue/Angular and uses native input events for controlled components
-- **Anti-bot** — real Chrome user-agent, `navigator.webdriver` removed, random click delays
+- **Multi-strategy Selector Engine** — generates primary and fallback selectors using ARIA roles, labels, text content, and stable CSS attributes.
+- **Success Indicator Detection** — automatically identifies post-action state changes (like 'Logout' or success alerts) to generate concrete assertions.
+- **Auto-healing** — if primary selectors fail, the engine fuzzy-matches elements based on proximity and semantic similarity.
+- **Retry logic** — every step retried up to 3 times with exponential backoff.
+- **Smart waits** — intelligently waits for network idle and DOM stability.
+- **Framework detection** — optimized for React, Vue, and Angular controlled components.
+- **Anti-bot** — real Chrome behavior simulation with random delays and automation-masking.
 
 ---
 

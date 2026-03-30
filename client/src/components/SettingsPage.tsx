@@ -79,7 +79,7 @@ export default function SettingsPage({ user, theme: currentTheme, onToggleTheme 
   ];
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '60px 40px', animation: 'fadeIn 0.4s ease-out' }}>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '60px 40px', animation: 'fadeIn 0.4s ease-out' }}>
       <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Settings</h1>
       <p style={{ color: theme.textMuted, marginBottom: 40 }}>Manage your account settings and preferences.</p>
 
@@ -102,7 +102,7 @@ export default function SettingsPage({ user, theme: currentTheme, onToggleTheme 
 
       <div style={{ display: 'flex', gap: 48 }}>
         {/* Sidebar */}
-        <div style={{ width: 240, flexShrink: 0 }}>
+        <div style={{ width: 300, flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {tabs.map(tab => (
               <button

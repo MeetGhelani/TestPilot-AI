@@ -1,9 +1,33 @@
 import { useState, useEffect } from 'react'
+import StepEditor, { EditableStep } from './StepEditor'
 
 interface TestSuggestion {
-  id: string; title: string; description: string; category: string
-  priority: 'high' | 'medium' | 'low'; icon: string
-  testDescription: string; url: string; why: string
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  priority: 'high' | 'medium' | 'low';
+  icon: string;
+  steps?: {
+    action: string;
+    target?: string | { primary: string; fallback: string[] };
+    value?: string;
+    description: string;
+    intent?: string;
+    assertType?: 'visible' | 'text' | 'url';
+  }[];
+  confidence?: {
+    detection: number;
+    selector: number;
+    outcome: number;
+  };
+  testDescription?: string; // Legacy field
+  isNegative?: boolean;
+  isExecutable: boolean;
+  intent: string;
+  expectedState?: string;
+  url: string;
+  why: string;
 }
 
 interface ScanSummary {
@@ -13,13 +37,24 @@ interface ScanSummary {
 }
 
 interface StepResult {
-  step: { action: string; target?: string; value?: string; description: string }
-  status: 'passed' | 'failed' | 'skipped'; durationMs: number; error?: string; screenshotPath?: string
+  step: { 
+    action: string; 
+    target?: string | { primary: string; fallback: string[] }; 
+    value?: string; 
+    description: string;
+    intent?: string;
+    assertType?: 'visible' | 'text' | 'url';
+  }
+  status: 'passed' | 'failed' | 'skipped'; 
+  durationMs: number; 
+  error?: string; 
+  screenshotPath?: string;
 }
 interface TestResult {
+  id?: string;
   plan: { title: string; naturalLanguageInput: string }
   status: 'passed' | 'failed' | 'error'; stepResults: StepResult[]
-  totalDurationMs: number; reportPath?: string; error?: string
+  totalDurationMs: number; startedAt: string; reportPath?: string; error?: string
 }
 
 const PRIORITY_COLOR = { high: 'var(--fail)', medium: 'var(--accent)', low: 'var(--text3)' }
@@ -29,13 +64,18 @@ const CATEGORY_LABELS: Record<string, string> = {
   search: 'Search', ecommerce: 'E-commerce', content: 'Content', ui: 'UI'
 }
 
-interface Props { onBusyChange?: (busy: boolean) => void }
-export default function SmartSuggester({ onBusyChange }: Props = {}) {
+interface Props { 
+  onBusyChange?: (busy: boolean) => void;
+  switchTab?: (tab: 'home' | 'history' | 'record' | 'suggest' | 'audit' | 'settings') => void;
+  setHighlightId?: (id: string | null) => void;
+}
+export default function SmartSuggester({ onBusyChange, switchTab, setHighlightId }: Props = {}) {
   const [url, setUrl] = useState('')
   const [siteName, setSiteName] = useState('')
   const [useAuth, setUseAuth] = useState(false)
   const [authUser, setAuthUser] = useState('')
   const [authPass, setAuthPass] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [activeResult, setActiveResult] = useState<ScanSummary | null>(null)
   const [savedScans, setSavedScans] = useState<ScanSummary[]>([])
@@ -47,12 +87,15 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
   const [runResult, setRunResult] = useState<{ sugId: string; result: TestResult } | null>(null)
   const [running, setRunning] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  // Edit state: sugId -> current edited text
-  const [editingId, setEditingId] = useState<string | null>(null)
+  // Edit state: sugId -> current edited text/steps
+  const [editingSugId, setEditingSugId] = useState<string | null>(null)
+  const [editedSteps, setEditedSteps] = useState<EditableStep[]>([])
   const [editText, setEditText] = useState('')
   // Rename state
   const [renamingUrl, setRenamingUrl] = useState<string | null>(null)
   const [renameText, setRenameText] = useState('')
+  // Toast state
+  const [showRunToast, setShowRunToast] = useState(false)
 
   const fetchSaved = async () => {
     try {
@@ -63,7 +106,10 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
     } catch {}
   }
 
-  useEffect(() => { fetchSaved() }, [])
+  useEffect(() => {
+    fetchSaved();
+    return () => onBusyChange?.(false);
+  }, []);
 
   const handleScan = async () => {
     if (!url.trim()) return
@@ -83,10 +129,10 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
       setActiveResult(data)
       fetchSaved()
     } catch (err) { setError(err instanceof Error ? err.message : String(err)) }
-    finally { setScanning(false) }
+    finally { setScanning(false); onBusyChange?.(false) }
   }
 
-  const handleRun = async (sug: TestSuggestion, customText?: string) => {
+  const handleRun = async (sug: TestSuggestion) => {
     setRunningId(sug.id)
     setRunResult(null)
     setRunning(true); onBusyChange?.(true)
@@ -96,7 +142,8 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
         body: JSON.stringify({
           platform: 'web',
           url: sug.url,
-          test: customText ?? sug.testDescription,
+          test: JSON.stringify(sug.steps), // Send structured steps
+          isStructured: true,
           headless: true,
           authUser: useAuth && authUser.trim() ? authUser.trim() : undefined,
           authPass: useAuth && authPass.trim() ? authPass.trim() : undefined,
@@ -107,13 +154,17 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
     } catch (err) {
       console.error(err)
     } finally {
-      setRunningId(null)
-      setRunning(false); onBusyChange?.(false)
+      setRunning(false)
+      onBusyChange?.(false)
+      setRunningId(null) // Reset button state
+      window.scrollTo({ top: 0, behavior: 'smooth' }) // Scroll to see toast
+      // Show run toast (persistent until manual close or new run)
+      setShowRunToast(true)
     }
   }
 
-  const handleCopy = (sug: TestSuggestion, customText?: string) => {
-    navigator.clipboard.writeText(customText ?? sug.testDescription)
+  const handleCopy = (sug: TestSuggestion) => {
+    navigator.clipboard.writeText(JSON.stringify(sug.steps, null, 2))
     setCopiedId(sug.id)
     setTimeout(() => setCopiedId(null), 1500)
   }
@@ -143,20 +194,49 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
     setRenamingUrl(null)
   }
 
-  // Save edited test description back to suggestions
-  const handleEditSave = async (sug: TestSuggestion) => {
+  // Save edited steps back to global suggestions
+  const handleSaveSteps = async (suggestionId: string, steps: EditableStep[]) => {
     if (!activeResult) return
-    const updated = { ...activeResult, suggestions: activeResult.suggestions.map(s => s.id === sug.id ? { ...s, testDescription: editText } : s) }
-    setActiveResult(updated)
-    // Persist to server
     try {
       await fetch('http://localhost:3001/api/suggestions/update', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: activeResult.url, suggestionId: sug.id, testDescription: editText }),
+        body: JSON.stringify({
+          url: activeResult.url,
+          suggestionId,
+          steps
+        }),
       })
-      fetchSaved()
-    } catch {}
-    setEditingId(null)
+      // Update local state
+      setActiveResult(prev => {
+        if (!prev) return null
+        return {
+          ...prev,
+          suggestions: prev.suggestions.map(s => 
+            s.id === suggestionId ? { ...s, steps, isExecutable: true } : s
+          )
+        }
+      })
+      setEditingSugId(null)
+    } catch (err) {
+      setError('Failed to save test steps')
+    }
+  }
+
+  // Legacy edit for description (kept for safety)
+  const handleEditSave = async (sugId: string) => {
+    // No longer needed since we have StepEditor, but kept for UI structure if needed
+    setEditingSugId(null)
+  }
+
+  const handleScrollToResult = (sugId: string) => {
+    const el = document.getElementById(`sug-${sugId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Visual highlight flash
+      el.style.borderColor = 'var(--accent)'
+      setTimeout(() => { if (el) el.style.borderColor = '' }, 2000)
+    }
+    setShowRunToast(false)
   }
 
   const inp: React.CSSProperties = { width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none' }
@@ -168,20 +248,25 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
   return (
     <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', position: 'relative' }}>
 
-      {/* Running overlay — dims whole panel while test runs */}
-      {running && (
-        <div style={{ position: 'fixed', inset: 0, background: 'var(--glass)', zIndex: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, backdropFilter: 'blur(10px)' }}>
-          <div style={{ width: 44, height: 44, border: '3px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      {/* Running/Scanning overlays — dims whole panel while busy */}
+      {(running || scanning) && (
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--glass)', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, backdropFilter: 'blur(12px)', animation: 'fadeIn 0.3s ease-out' }}>
+          <div style={{ width: 48, height: 48, border: '3px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+          <style>{`
+            @keyframes spin{to{transform:rotate(360deg)}}
+            @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+          `}</style>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--accent)', fontWeight: 500, letterSpacing: 1 }}>RUNNING TEST</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Please wait — browser is executing steps...</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--accent)', fontWeight: 600, letterSpacing: 2 }}>{scanning ? 'SCANNING SITE' : 'RUNNING TEST'}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text3)', marginTop: 6, maxWidth: 300, lineHeight: 1.5 }}>
+              {scanning ? 'Please wait — our AI is exploring your pages to suggest the best test scenarios...' : 'Please wait — browser is executing test steps live...'}
+            </div>
           </div>
         </div>
       )}
 
       {/* ── Left panel ── */}
-      <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ width: 350, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 112, alignSelf: 'flex-start' }}>
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 600,   lineHeight: 1.2 }}>Smart test<br /><em style={{ color: 'var(--accent)', fontFamily: 'var(--font-serif)', fontWeight: 500 }}>suggester</em></h1>
           <p style={{ color: 'var(--text2)', fontSize: 12, marginTop: 6 }}>Scans your site — tells you exactly what to test.</p>
@@ -190,7 +275,7 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
         {/* Site name */}
         <div>
           <label style={lbl}>Site name</label>
-          <input style={inp} placeholder="e.g. Artelia Demo, My Shop..." value={siteName} onChange={e => setSiteName(e.target.value)} disabled={scanning} />
+          <input style={inp} placeholder="e.g. Demo, My Shop..." value={siteName} onChange={e => setSiteName(e.target.value)} disabled={scanning} />
           <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Optional — helps identify saved scans</p>
         </div>
 
@@ -210,7 +295,36 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
           {useAuth && (
             <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <input style={inp} placeholder="Username" value={authUser} onChange={e => setAuthUser(e.target.value)} autoComplete="off" />
-              <input style={inp} type="password" placeholder="Password" value={authPass} onChange={e => setAuthPass(e.target.value)} />
+              <div style={{ position: 'relative' }}>
+                <input 
+                  style={{ ...inp, paddingRight: 38 }} 
+                  type={showPassword ? "text" : "password"} 
+                  placeholder="Password" 
+                  value={authPass} 
+                  onChange={e => setAuthPass(e.target.value)} 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    padding: 4,
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text3)'
+                  }}
+                >
+                  {showPassword ? '👁️' : '🙈'}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -226,7 +340,7 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
         {savedScans.length > 0 && (
           <div>
             <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text3)', letterSpacing: 1, marginBottom: 8 }}>SAVED SCANS ({savedScans.length})</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="custom-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', maxHeight: '30vh', paddingRight: 4 }}>
               {savedScans.map(scan => (
                 <div key={scan.url}>
                   {renamingUrl === scan.url ? (
@@ -276,13 +390,35 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
       {/* ── Right panel ── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-        {scanning && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 300, gap: 16 }}>
-            <div style={{ width: 36, height: 36, border: '2px solid var(--border2)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-            <p style={{ color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>Scanning your site...</p>
+        {/* Global Toast Notification */}
+        {showRunToast && (
+          <div style={{ padding: '10px 14px', background: 'var(--accent-glow)', border: '1px solid var(--accent)', borderRadius: 10, display: 'flex', gap: 12, alignItems: 'center', animation: 'fadeInDown 0.3s ease-out', position: 'relative' }}>
+            <span style={{ fontSize: 14 }}>🚀</span>
+            <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500, flex: 1 }}>
+              Test run completed! You can view detailed results in the <span 
+                onClick={() => {
+                  if (runResult && switchTab && setHighlightId) {
+                    setHighlightId(runResult.result.id || runResult.result.startedAt || null)
+                    switchTab('history')
+                  }
+                }}
+                style={{ fontFamily: 'var(--font-mono)', borderBottom: '1px solid var(--accent)', cursor: 'pointer', color: 'var(--accent)' }}
+              >Result Panel</span> below.
+            </div>
+            <button 
+              onClick={() => setShowRunToast(false)}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 14, padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              title="Dismiss"
+            >✕</button>
           </div>
         )}
+        <style>{`
+          @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}</style>
+
 
         {!activeResult && !scanning && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 280, opacity: 0.4 }}>
@@ -327,9 +463,9 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
             {/* Suggestion cards */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {filtered.map(sug => {
-                const isEditing = editingId === sug.id
+                const isEditing = editingSugId === sug.id
                 return (
-                  <div key={sug.id} style={{ background: 'var(--surface)', border: `1px solid ${isEditing ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.2s' }}>
+                  <div key={sug.id} id={`sug-${sug.id}`} style={{ background: 'var(--surface)', border: `1px solid ${isEditing ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.2s' }}>
                     <div style={{ padding: '14px 16px', display: 'flex', gap: 12 }}>
                       <div style={{ fontSize: 20, flexShrink: 0, marginTop: 2 }}>{sug.icon}</div>
                       <div style={{ flex: 1 }}>
@@ -355,56 +491,80 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
                       )}
 
                       {/* Test description — editable */}
-                        <div style={{ marginTop: 10 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                            <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text3)', letterSpacing: 1 }}>TEST DESCRIPTION</span>
-                            {!isEditing ? (
-                              <button onClick={() => { setEditingId(sug.id); setEditText(sug.testDescription) }}
-                                style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text3)', fontSize: 10, fontFamily: 'var(--font-mono)', cursor: 'pointer', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                ✎ EDIT
-                              </button>
-                            ) : (
-                              <div style={{ display: 'flex', gap: 6 }}>
-                                <button onClick={() => handleEditSave(sug)}
-                                  style={{ background: 'var(--accent)', border: 'none', borderRadius: 4, color: '#0f0f0f', fontSize: 10, fontFamily: 'var(--font-mono)', cursor: 'pointer', padding: '2px 10px', fontWeight: 500 }}>
-                                  SAVE
-                                </button>
-                                <button onClick={() => setEditingId(null)}
-                                  style={{ background: 'transparent', border: '1px solid var(--border2)', borderRadius: 4, color: 'var(--text3)', fontSize: 10, fontFamily: 'var(--font-mono)', cursor: 'pointer', padding: '2px 8px' }}>
-                                  CANCEL
-                                </button>
+                         {/* Steps - Modern List */}
+                        <div style={{ marginTop: 12 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text3)', letterSpacing: 1 }}>TEST FLOW ({sug.steps?.length ?? 0} STEPS)</span>
+                            {sug.confidence && (
+                              <div style={{ display: 'flex', gap: 10 }}>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} title="Detection Confidence">
+                                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: sug.confidence.detection > 0.7 ? 'var(--pass)' : 'var(--fail)' }} />
+                                  <span style={{ fontSize: 10, color: 'var(--text3)' }}>{Math.round(sug.confidence.detection * 100)}% DET</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} title="Selector Stability">
+                                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: sug.confidence.selector > 0.7 ? 'var(--pass)' : 'var(--fail)' }} />
+                                  <span style={{ fontSize: 10, color: 'var(--text3)' }}>{Math.round(sug.confidence.selector * 100)}% SEL</span>
+                                </div>
                               </div>
                             )}
                           </div>
 
-                          {isEditing ? (
-                            <div>
-                              <textarea
-                                value={editText}
-                                onChange={e => setEditText(e.target.value)}
-                                autoFocus
-                                style={{ ...inp, minHeight: 90, resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.7, borderColor: 'var(--accent)' }}
-                              />
-                              <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
-                                Separate steps with commas. e.g. "verify header is visible, click login, take screenshot"
-                              </p>
-                            </div>
-                          ) : (
-                            <div style={{ padding: '8px 10px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text2)', lineHeight: 1.7 }}>
-                              {sug.testDescription}
-                            </div>
+                          <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {isEditing ? (
+                              <div style={{ padding: '4px' }}>
+                                <StepEditor steps={editedSteps} onChange={setEditedSteps} />
+                                <div style={{ marginTop: 14, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                                  <button onClick={() => handleSaveSteps(sug.id, editedSteps)} style={{ padding: '7px 16px', background: 'var(--accent)', border: 'none', borderRadius: 6, color: '#0f0f0f', fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, cursor: 'pointer' }}>SAVE & CLOSE</button>
+                                  <button onClick={() => setEditingSugId(null)} style={{ padding: '7px 12px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>CANCEL</button>
+                                </div>
+                              </div>
+                            ) : (
+                              sug.steps ? (
+                                sug.steps.map((st, idx) => (
+                                  <div key={idx} style={{ display: 'flex', gap: 10, fontSize: 11, padding: '6px 8px', borderRadius: 6, background: st.action.startsWith('assert') ? 'var(--accent-glow)' : 'transparent', border: st.action.startsWith('assert') ? '1px dashed var(--accent)' : 'none' }}>
+                                    <span style={{ color: 'var(--text3)', width: 14 }}>{idx + 1}.</span>
+                                    <span style={{ fontWeight: 600, color: st.action.startsWith('assert') ? 'var(--accent)' : 'var(--text)', width: 75 }}>{st.action.toUpperCase()}</span>
+                                    <span style={{ flex: 1, color: 'var(--text2)' }}>{st.description}</span>
+                                    {st.intent && <span style={{ color: 'var(--text3)', fontSize: 9, fontFamily: 'var(--font-mono)' }}>[{st.intent}]</span>}
+                                  </div>
+                                ))
+                              ) : (
+                                <div style={{ padding: '8px', fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>
+                                  {sug.testDescription || 'No steps available for this legacy suggestion.'}
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Metadata Tags */}
+                        <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {sug.isExecutable && (
+                            <span style={{ fontSize: 9, background: 'var(--pass-glow)', color: 'var(--pass)', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--pass-border)', textTransform: 'uppercase', letterSpacing: 0.5 }}>✓ Execution Ready</span>
+                          )}
+                          {sug.isNegative && (
+                            <span style={{ fontSize: 9, background: 'var(--fail-glow)', color: 'var(--fail)', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--fail-border)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Negative Test</span>
+                          )}
+                          {sug.intent && (
+                            <span style={{ fontSize: 9, background: 'var(--surface2)', color: 'var(--text3)', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', fontFamily: 'var(--font-mono)' }}>Intent: {sug.intent}</span>
                           )}
                         </div>
 
                         {/* Why */}
-                        <div style={{ marginTop: 8 }}>
+                        <div style={{ marginTop: 12 }}>
                           <button onClick={() => setExpandedWhy(expandedWhy === sug.id ? null : sug.id)}
-                            style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', padding: 0 }}>
-                            {expandedWhy === sug.id ? '▾' : '▸'} Why test this?
+                            style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 8 }}>{expandedWhy === sug.id ? '▼' : '▶'}</span> WHY TEST THIS?
                           </button>
                           {expandedWhy === sug.id && (
-                            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text2)', padding: '8px 10px', background: '#c8f06908', border: '1px solid #c8f06922', borderRadius: 6, lineHeight: 1.6 }}>
+                            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text3)', padding: '12px', background: 'var(--surface2)', borderRadius: 8, borderLeft: '3px solid var(--accent)', lineHeight: 1.6 }}>
                               {sug.why}
+                              {sug.expectedState && (
+                                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 11 }}>
+                                  <strong style={{ color: 'var(--text2)', display: 'block', marginBottom: 2 }}>Expected Final State:</strong>
+                                  {sug.expectedState}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -413,12 +573,16 @@ export default function SmartSuggester({ onBusyChange }: Props = {}) {
 
                     {/* Action bar */}
                     <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end', background: 'var(--surface2)' }}>
-                      <button onClick={() => handleCopy(sug, isEditing ? editText : undefined)}
+                      <button onClick={() => { setEditingSugId(sug.id); setEditedSteps([...(sug.steps || [])]) }} disabled={isEditing}
+                        style={{ padding: '6px 14px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>
+                        {isEditing ? 'EDITING...' : '✎ EDIT'}
+                      </button>
+                      <button onClick={() => handleCopy(sug)}
                         style={{ padding: '6px 14px', background: copiedId === sug.id ? 'var(--pass-glow)' : 'transparent', border: `1px solid ${copiedId === sug.id ? 'var(--pass-border)' : 'var(--border)'}`, borderRadius: 6, color: copiedId === sug.id ? 'var(--pass)' : 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', transition: 'all 0.2s' }}>
                         {copiedId === sug.id ? '✓ COPIED' : 'COPY'}
                       </button>
-                      <button onClick={() => handleRun(sug, isEditing ? editText : undefined)} disabled={runningId === sug.id}
-                        style={{ padding: '6px 14px', background: 'var(--accent)', border: 'none', borderRadius: 6, color: '#0f0f0f', fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, cursor: 'pointer' }}>
+                      <button onClick={() => handleRun(sug)} disabled={runningId === sug.id || (!sug.isExecutable && !sug.testDescription)}
+                        style={{ padding: '6px 14px', background: (sug.isExecutable || sug.testDescription) ? 'var(--accent)' : 'var(--surface2)', border: 'none', borderRadius: 6, color: (sug.isExecutable || sug.testDescription) ? '#0f0f0f' : 'var(--text3)', fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, cursor: (sug.isExecutable || sug.testDescription) ? 'pointer' : 'not-allowed' }}>
                         {runningId === sug.id ? '▶ STARTING...' : '▶ RUN TEST'}
                       </button>
                     </div>

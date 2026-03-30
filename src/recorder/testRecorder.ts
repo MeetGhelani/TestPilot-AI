@@ -11,6 +11,7 @@ export interface RecordedTest {
   steps: TestStep[];
   authUser?: string;
   authPass?: string;
+  version?: number;
 }
 
 // ── In-memory live state ──────────────────────────────────────────────────────
@@ -19,7 +20,7 @@ let activeContext: BrowserContext | null = null;
 let activePage: Page | null = null;
 let liveSteps: TestStep[] = [];
 let isRecording = false;
-let lastFillTarget = '';
+let lastFillTarget: string | { primary: string; fallback: string[] } = '';
 let lastFillValue = '';
 let fillDebounce: ReturnType<typeof setTimeout> | null = null;
 let savedAuthUser: string | undefined;
@@ -34,14 +35,17 @@ function pushStep(step: TestStep) {
 
 function flushFill() {
   if (lastFillTarget && lastFillValue) {
+    const primary = typeof lastFillTarget === 'string' ? lastFillTarget : lastFillTarget.primary;
     pushStep({
       action: 'fill',
       target: lastFillTarget,
       value: lastFillValue,
-      description: `Type "${lastFillValue}" into ${lastFillTarget}`,
+      description: `Type "${lastFillValue}" into ${primary}`,
+      frame: (global as any)._pendingFrame
     });
     lastFillTarget = '';
     lastFillValue = '';
+    (global as any)._pendingFrame = undefined;
   }
 }
 
@@ -105,40 +109,95 @@ export async function startRecording(url: string, authUser?: string, authPass?: 
 
   // ── Inject selector helper into every new page ────────────────────────────
   await activeContext.addInitScript(() => {
-    (window as any).__getBestSelector = (el: HTMLElement): string => {
-      // Walk up from SVG/path to real clickable parent
-      let target: HTMLElement = el;
-      const svgTags = ['svg', 'path', 'circle', 'rect', 'g', 'use', 'polygon', 'polyline', 'line', 'ellipse'];
-      while (svgTags.includes(target.tagName.toLowerCase()) && target.parentElement) {
-        target = target.parentElement;
+    // Hierarchical XPath generator
+    const getXPath = (el: HTMLElement): string => {
+      if (el.id) return `//*[@id="${el.id}"]`;
+      const parts: string[] = [];
+      let cur: HTMLElement | null = el;
+      while (cur && cur.nodeType === Node.ELEMENT_NODE) {
+        let index = 0;
+        let sibling = cur.previousSibling;
+        while (sibling) {
+          if (sibling.nodeType === Node.ELEMENT_NODE && (sibling as Element).tagName === cur.tagName) {
+            index++;
+          }
+          sibling = sibling.previousSibling;
+        }
+        const tagName = cur.tagName.toLowerCase();
+        const pathIndex = index > 0 ? `[${index + 1}]` : '';
+        parts.unshift(`${tagName}${pathIndex}`);
+        cur = cur.parentElement;
+      }
+      return parts.length ? `/${parts.join('/')}` : '';
+    };
+
+    const getIframePath = (): string | undefined => {
+      if (window.self === window.top) return undefined;
+      try {
+        // Try to find the iframe element in the parent document that matches this window
+        const iframes = window.parent.document.querySelectorAll('iframe');
+        for (let i = 0; i < iframes.length; i++) {
+          if (iframes[i].contentWindow === window) {
+            return iframes[i].id ? `#${iframes[i].id}` : `iframe >> nth=${i}`;
+          }
+        }
+      } catch (e) {
+        // Cross-origin iframe restricted access
+        return 'cross-origin-iframe';
+      }
+      return 'iframe';
+    };
+
+    (window as any).__getSmartTarget = (el: HTMLElement): { primary: string; fallback: string[] } => {
+      const strategies: string[] = [];
+      const fallbacks: string[] = [];
+
+      // 1. Role-based (Strongest)
+      const role = el.getAttribute('role') || (el.tagName === 'BUTTON' ? 'button' : el.tagName === 'A' ? 'link' : undefined);
+      const text = el.innerText?.trim().slice(0, 50);
+      if (role && text) {
+        strategies.push(`role=${role}[name="${text}"]`);
       }
 
-      let current: HTMLElement | null = target;
-      for (let i = 0; i < 5; i++) {
-        if (!current) break;
-        // Priority: id > data-testid > aria-label > name > placeholder > text
-        if (current.id) return `#${CSS.escape(current.id)}`;
-        const testId = current.getAttribute('data-testid');
-        if (testId) return `[data-testid="${testId}"]`;
-        const ariaLabel = current.getAttribute('aria-label');
-        if (ariaLabel) return `[aria-label="${ariaLabel}"]`;
-        const name = (current as HTMLInputElement).name;
-        if (name) return `[name="${name}"]`;
-        const placeholder = (current as HTMLInputElement).placeholder;
-        if (placeholder) return `[placeholder="${placeholder}"]`;
-        const tag = current.tagName.toLowerCase();
-        const text = current.innerText?.trim().slice(0, 50);
-        const role = current.getAttribute('role');
-        if ((role === 'button' || tag === 'button' || tag === 'a') && text) {
-          return `${tag}:has-text("${text}")`;
-        }
-        current = current.parentElement;
+      // 2. Text-based
+      if (text && text.length > 2) {
+        strategies.push(`text="${text}"`);
       }
-      const classes = Array.from(target.classList)
+
+      // 3. Label-based (for inputs)
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
+        const id = el.id;
+        if (id) {
+          const label = document.querySelector(`label[for="${id}"]`);
+          if (label && label.textContent) {
+            strategies.push(`label="${label.textContent.trim()}"`);
+          }
+        }
+      }
+
+      // 4. Data-TestID
+      const testId = el.getAttribute('data-testid') || el.getAttribute('data-test-id') || el.getAttribute('data-qa');
+      if (testId) {
+        strategies.push(`[data-testid="${testId}"]`);
+      }
+
+      // 5. CSS ID/Class (Legacy Fallback)
+      if (el.id) strategies.push(`#${CSS.escape(el.id)}`);
+      
+      const classes = Array.from(el.classList)
         .filter(c => !/^(active|hover|focus|open|visible|hidden|selected|is-|js-)/.test(c))
         .slice(0, 2);
-      if (classes.length) return `.${classes.join('.')}`;
-      return target.tagName.toLowerCase();
+      if (classes.length) strategies.push(`${el.tagName.toLowerCase()}.${classes.join('.')}`);
+
+      // 6. XPath (Deep Fallback)
+      fallbacks.push(`xpath=${getXPath(el)}`);
+
+      // Deduplicate and prioritize
+      const unique = Array.from(new Set(strategies));
+      return {
+        primary: unique[0] || el.tagName.toLowerCase(),
+        fallback: [...unique.slice(1), ...fallbacks]
+      };
     };
   });
 
@@ -150,7 +209,7 @@ export async function startRecording(url: string, authUser?: string, authPass?: 
       if (frame.parentFrame()) return; // skip iframes
       const navUrl = frame.url();
       if (!navUrl || navUrl === 'about:blank') return;
-      // Avoid duplicate consecutive navigate steps
+      
       const last = liveSteps[liveSteps.length - 1];
       if (last?.action === 'navigate' && last.value === navUrl) return;
       flushFill();
@@ -172,50 +231,69 @@ export async function startRecording(url: string, authUser?: string, authPass?: 
   activePage.on('load', async () => {
     try {
       // Re-attach listeners after each page load
-      await activePage!.exposeFunction('__recordClick', (selector: string, text: string) => {
+      await activePage!.exposeFunction('__recordClick', (target: any, text: string, frame?: string) => {
         flushFill();
-        const desc = text ? `Click "${text}"` : `Click ${selector}`;
+        const primary = typeof target === 'string' ? target : target.primary;
+        const desc = text ? `Click "${text}"` : `Click ${primary}`;
         const last = liveSteps[liveSteps.length - 1];
-        if (last?.action === 'click' && last.target === selector) return; // skip double-click noise
-        pushStep({ action: 'click', target: selector, description: desc });
-      }).catch(() => {}); // already exposed
+        if (last?.action === 'click' && JSON.stringify(last.target) === JSON.stringify(target)) return; 
+        pushStep({ action: 'click', target, description: desc, frame });
+      }).catch(() => {});
 
-      await activePage!.exposeFunction('__recordFill', (selector: string, value: string) => {
-        // Debounce: only flush after user stops typing
-        lastFillTarget = selector;
+      await activePage!.exposeFunction('__recordFill', (target: any, value: string, frame?: string) => {
+        lastFillTarget = target;
         lastFillValue = value;
+        // Store frame context for the pending fill
+        (global as any)._pendingFrame = frame;
         if (fillDebounce) clearTimeout(fillDebounce);
         fillDebounce = setTimeout(flushFill, 800);
       }).catch(() => {});
 
-      await activePage!.exposeFunction('__recordSelect', (selector: string, value: string) => {
+      await activePage!.exposeFunction('__recordSelect', (target: any, value: string, frame?: string) => {
         flushFill();
-        pushStep({ action: 'select', target: selector, value, description: `Select "${value}" from ${selector}` });
+        pushStep({ action: 'select', target, value, description: `Select "${value}"`, frame });
       }).catch(() => {});
 
-      // Attach DOM listeners
+      // Attach DOM listeners to all frames via script injection
       await activePage!.evaluate(() => {
-        document.addEventListener('click', (e) => {
-          const el = e.target as HTMLElement;
-          if (!el || el === document.body) return;
-          const selector = (window as any).__getBestSelector(el);
-          const text = el.innerText?.trim().slice(0, 60) ?? '';
-          (window as any).__recordClick(selector, text);
-        }, true);
+        const setupListeners = () => {
+          const getIframePath = (): string | undefined => {
+            if (window.self === window.top) return undefined;
+            try {
+              const iframes = window.parent.document.querySelectorAll('iframe');
+              for (let i = 0; i < iframes.length; i++) {
+                if (iframes[i].contentWindow === window) {
+                  return iframes[i].id ? `#${iframes[i].id}` : `iframe >> nth=${i}`;
+                }
+              }
+            } catch { return 'iframe'; }
+            return 'iframe';
+          };
 
-        document.addEventListener('input', (e) => {
-          const el = e.target as HTMLInputElement;
-          if (!el || !['INPUT', 'TEXTAREA'].includes(el.tagName)) return;
-          const selector = (window as any).__getBestSelector(el);
-          (window as any).__recordFill(selector, el.value);
-        }, true);
+          document.addEventListener('click', (e) => {
+            const el = e.target as HTMLElement;
+            if (!el || el === document.body) return;
+            const target = (window as any).__getSmartTarget(el);
+            const text = el.innerText?.trim().slice(0, 60) ?? '';
+            (window as any).__recordClick(target, text, getIframePath());
+          }, true);
 
-        document.addEventListener('change', (e) => {
-          const el = e.target as HTMLSelectElement;
-          if (el.tagName !== 'SELECT') return;
-          const selector = (window as any).__getBestSelector(el);
-          (window as any).__recordSelect(selector, el.value);
-        }, true);
+          document.addEventListener('input', (e) => {
+            const el = e.target as HTMLInputElement;
+            if (!el || !['INPUT', 'TEXTAREA'].includes(el.tagName)) return;
+            const target = (window as any).__getSmartTarget(el);
+            (window as any).__recordFill(target, el.value, getIframePath());
+          }, true);
+
+          document.addEventListener('change', (e) => {
+            const el = e.target as HTMLSelectElement;
+            if (el.tagName !== 'SELECT') return;
+            const target = (window as any).__getSmartTarget(el);
+            (window as any).__recordSelect(target, el.value, getIframePath());
+          }, true);
+        };
+
+        setupListeners();
       }).catch(() => {});
     } catch {}
   });
@@ -253,6 +331,7 @@ export async function stopRecording(title: string, outputDir: string): Promise<R
     steps: finalSteps,
     authUser: savedAuthUser,
     authPass: savedAuthPass,
+    version: 1, // New version field
   };
 
   fs.mkdirSync(outputDir, { recursive: true });

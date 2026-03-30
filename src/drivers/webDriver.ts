@@ -1,4 +1,4 @@
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, Browser, BrowserContext, Page, Locator } from 'playwright';
 import * as path from 'path';
 import * as fs from 'fs';
 import type { Driver, TestStep, StepResult } from '../types/index';
@@ -6,17 +6,19 @@ import { resolveElement, smartWait, withRetry, detectFramework } from '../engine
 
 export class WebDriver implements Driver {
   private browser: Browser | null = null;
+  private context: BrowserContext | null = null;
   private page: Page | null = null;
   private screenshotDir: string;
   private headless: boolean;
   private authUser: string | undefined;
   private authPass: string | undefined;
   private framework: string[] = [];
+  private networkErrors: Array<{ url: string; status: number; statusText: string }> = [];
+
   private readonly FAILURE_INDICATORS = [
-    're-captcha', 'recaptcha', 'captcha', 'bot detection', 'verify you are human', 'no soy un robot',
-    'invalid credentials', 'login failed', 'incorrect username', 'incorrect password',
-    'authentication failed', 'error has occurred', 'page not found', '404 not found',
-    'access denied', 'forbidden', 'try again', 'inválido', 'incorrecto', 'reintente', 'falló'
+    're-captcha', 'recaptcha', 'captcha', 'bot detection', 'verify you are human',
+    'invalid credentials', 'incorrect username', 'incorrect password',
+    'error has occurred', '404 not found', 'access denied'
   ];
 
   constructor(options: { screenshotDir?: string; headless?: boolean; authUser?: string; authPass?: string } = {}) {
@@ -33,46 +35,32 @@ export class WebDriver implements Driver {
       args: ['--disable-blink-features=AutomationControlled'],
     });
 
-    let cleanUrl = url;
-    let username = this.authUser;
-    let password = this.authPass;
-
-    try {
-      const parsed = new URL(url);
-      if (parsed.username) {
-        if (!username) username = decodeURIComponent(parsed.username);
-        if (!password) password = decodeURIComponent(parsed.password);
-        parsed.username = ''; parsed.password = '';
-        cleanUrl = parsed.toString();
-      }
-    } catch {}
-
-    const httpCredentials = (username || password)
-      ? { username: username ?? '', password: password ?? '' }
-      : undefined;
-
-    console.log(`[WebDriver] launching ${cleanUrl} — auth: ${httpCredentials ? `YES (${username})` : 'NO'}`);
-
-    const context = await this.browser.newContext({
+    this.context = await this.browser.newContext({
       viewport: { width: 1280, height: 800 },
-      httpCredentials,
-      // Appear more like a real browser
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      httpCredentials: this.authUser ? { username: this.authUser, password: this.authPass || '' } : undefined,
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     });
 
-    this.page = await context.newPage();
+    this.page = await this.context.newPage();
 
-    // Stealth: remove automation signals
+    // Network Monitoring
+    this.page.on('response', (response) => {
+      if (response.status() >= 400) {
+        this.networkErrors.push({
+          url: response.url(),
+          status: response.status(),
+          statusText: response.statusText(),
+        });
+      }
+    });
+
     await this.page.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     });
 
-    await this.page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await this.page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await smartWait(this.page);
-
-    // Detect framework for smarter handling
     this.framework = await detectFramework(this.page);
-    if (this.framework.length) console.log(`[WebDriver] detected: ${this.framework.join(', ')}`);
 
     if (!this.headless) await this.injectOverlay('Initialising test...');
   }
@@ -80,176 +68,93 @@ export class WebDriver implements Driver {
   async executeStep(step: TestStep): Promise<StepResult> {
     if (!this.page) throw new Error('WebDriver not launched');
     const start = Date.now();
+    this.networkErrors = []; // Clear for this specific step
 
     if (!this.headless) await this.updateOverlay(`▶ ${step.description}`, 'running');
 
     try {
-      const result = await withRetry(() => this._run(step), 3, step.description);
+      const runResult = await withRetry(() => this._run(step), step.retries || 2, step.description);
 
       if (!this.headless) {
         await this.updateOverlay(`✓ ${step.description}`, 'passed');
-        await this.page.waitForTimeout(250);
-      }
-      return { 
-        step, 
-        status: 'passed', 
-        durationMs: Date.now() - start,
-        screenshotPath: typeof result === 'string' ? result : undefined 
-      };
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      const screenshotPath = await this._captureErrorScreenshot(step.action);
-      
-      if (errMsg.includes('Automation blocked by CAPTCHA')) {
-        if (!this.headless) {
-          await this.updateOverlay(`⚠️ ${step.description} (Blocked)`, 'warning');
-          await this.page.waitForTimeout(600);
-        }
-        console.warn(`[WebDriver] Step BLOCKED by CAPTCHA: ${step.description}`);
-        return {
-          step,
-          status: 'blocked',
-          durationMs: Date.now() - start,
-          reason: 'captcha_detected',
-          message: 'Automation blocked by CAPTCHA',
-          screenshotPath
-        };
+        await this.page.waitForTimeout(200);
       }
 
-      if (!this.headless) {
-        await this.updateOverlay(`✗ ${step.description}`, 'failed');
-        await this.page.waitForTimeout(600);
-      }
-      console.error(`[WebDriver] Step FAILED: ${step.description} - ${errMsg}`);
-      return { step, status: 'failed', durationMs: Date.now() - start, error: errMsg, screenshotPath };
+      return {
+        step,
+        status: 'passed',
+        durationMs: Date.now() - start,
+        screenshotPath: typeof runResult === 'string' ? runResult : undefined,
+        networkErrors: [...this.networkErrors],
+        selectionTrace: (runResult as any)?.trace,
+      };
+    } catch (err: any) {
+      const errMsg = err.message || String(err);
+      const screenshotPath = await this._captureErrorScreenshot(step.action);
+      
+      if (!this.headless) await this.updateOverlay(`✗ ${step.description}`, 'failed');
+      
+      return { 
+        step, 
+        status: 'failed', 
+        durationMs: Date.now() - start, 
+        error: errMsg, 
+        screenshotPath,
+        networkErrors: [...this.networkErrors]
+      };
     }
   }
 
-  private async _run(step: TestStep): Promise<string | void> {
+  private async _run(step: TestStep): Promise<any> {
     const p = this.page!;
+    const timeout = step.timeout || 10000;
 
     switch (step.action) {
-
-      case 'navigate': {
-        let navUrl = step.value!;
-        try {
-          const parsed = new URL(navUrl);
-          parsed.username = ''; parsed.password = '';
-          navUrl = parsed.toString();
-        } catch {}
-        await p.goto(navUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      case 'navigate':
+        await p.goto(step.value!, { waitUntil: 'networkidle', timeout: 30000 });
         await smartWait(p);
-        await this.checkForFailures(`navigation to ${navUrl}`);
+        await this.checkForFailures(`navigation to ${step.value}`);
         break;
-      }
 
-      case 'click': {
-        const { locator } = await resolveElement(p, step.target!, { timeout: 10000, retries: 3 });
-        await locator.scrollIntoViewIfNeeded();
-        // Small random delay to avoid anti-bot detection
-        await p.waitForTimeout(100 + Math.random() * 200);
-        await locator.click({ timeout: 8000 });
-        await smartWait(p, step.description);
-        await this.checkForFailures(step.description);
-        break;
-      }
-
-      case 'fill': {
-        const fillTarget = step.target!;
-        const fillValue = step.value ?? '';
-        try {
-          const { locator } = await resolveElement(p, fillTarget, { timeout: 8000, retries: 3 });
-          await locator.scrollIntoViewIfNeeded();
-          await locator.click({ clickCount: 3 }); // select all first
-          await locator.fill(fillValue);
-        } catch {
-          // Fallback: JS direct injection for React/Vue controlled inputs
-          await p.evaluate(({ sel, val }: { sel: string; val: string }) => {
-            const el = document.querySelector(sel) as HTMLInputElement;
-            if (!el) throw new Error(`Fill: element not found: ${sel}`);
-            const nativeInputSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-            nativeInputSetter?.call(el, val);
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-          }, { sel: fillTarget, val: fillValue });
-        }
-        break;
-      }
-
-      case 'select': {
-        const { locator } = await resolveElement(p, step.target!, { timeout: 8000 });
-        await locator.selectOption(step.value ?? '');
-        break;
-      }
-
+      case 'click':
+      case 'fill':
+      case 'press':
+      case 'select':
       case 'hover': {
-        const { locator } = await resolveElement(p, step.target!, { timeout: 8000 });
-        await locator.hover();
-        break;
-      }
-
-      case 'scroll':
-        if (step.target) {
-          try {
-            const { locator } = await resolveElement(p, step.target, { timeout: 5000 });
-            await locator.scrollIntoViewIfNeeded();
-          } catch {
-            await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-          }
-        } else {
-          await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        const { locator, selectionTrace } = await resolveElement(p, step.target!, { 
+          timeout, 
+          frame: step.frame 
+        });
+        
+        await this.highlight(locator, 'target');
+        
+        if (step.action === 'click') {
+          await locator.click({ timeout: 5000 });
+        } else if (step.action === 'fill') {
+          await locator.fill(step.value || '');
+        } else if (step.action === 'press') {
+          await locator.press(step.value || 'Enter');
+        } else if (step.action === 'select') {
+          await locator.selectOption(step.value || '');
+        } else if (step.action === 'hover') {
+          await locator.hover();
         }
-        break;
 
-      case 'wait': {
-        const ms = Number(step.value ?? 1000);
-        if (ms <= 500) {
-          await p.waitForTimeout(ms);
-        } else {
-          // Smart wait: try network idle first, fall back to fixed timeout
-          await Promise.race([
-            p.waitForLoadState('networkidle', { timeout: ms }),
-            p.waitForTimeout(ms),
-          ]).catch(() => {});
-        }
-        break;
+        await this.highlight(locator, 'success');
+        await smartWait(p);
+        await this.checkForFailures(step.description);
+        return { trace: selectionTrace };
       }
 
-      case 'assert_visible': {
-        const { locator } = await resolveElement(p, step.target!, { timeout: 10000, retries: 3 });
-        const visible = await locator.isVisible();
-        if (!visible) throw new Error(`Element "${step.target}" is not visible`);
-        break;
-      }
+      case 'assert':
+      case 'assert_visible':
+      case 'assert_text':
+      case 'assert_url':
+        return await this._handleAssertion(step);
 
-      case 'assert_text': {
-        const { locator } = await resolveElement(p, step.target!, { timeout: 10000, retries: 2 });
-        const text = await locator.innerText();
-        if (!text.toLowerCase().includes((step.value ?? '').toLowerCase())) {
-          throw new Error(`Expected text "${step.value}" but found "${text.slice(0, 100)}"`);
-        }
+      case 'wait':
+        await p.waitForTimeout(Number(step.value || 1000));
         break;
-      }
-
-      case 'assert_url': {
-        // Wait for URL to change (up to 5s) before asserting
-        try {
-          await p.waitForURL(`**${step.value}**`, { timeout: 5000 });
-        } catch {}
-        const current = p.url();
-        if (!current.includes(step.value ?? '')) {
-          throw new Error(`Expected URL to contain "${step.value}" but got "${current}"`);
-        }
-        break;
-      }
-
-      case 'assert_title': {
-        const title = await p.title();
-        if (!title.toLowerCase().includes((step.value ?? '').toLowerCase())) {
-          throw new Error(`Expected title to contain "${step.value}" but got "${title}"`);
-        }
-        break;
-      }
 
       case 'screenshot':
         return await this._captureScreenshot(step.description);
@@ -257,6 +162,44 @@ export class WebDriver implements Driver {
       default:
         throw new Error(`Unknown action: ${step.action}`);
     }
+  }
+
+  private async _handleAssertion(step: TestStep): Promise<void> {
+    const p = this.page!;
+    const type = step.assertType || (step.action.replace('assert_', '') as any);
+
+    if (type === 'url') {
+      const current = p.url();
+      if (!current.includes(step.value || '')) {
+        throw new Error(`URL assertion failed: expected "${step.value}" in "${current}"`);
+      }
+    } else if (type === 'visible' || type === 'text') {
+      const { locator } = await resolveElement(p, step.target!, { timeout: 5000, frame: step.frame });
+      await this.highlight(locator, 'info');
+      
+      if (type === 'visible') {
+        const isVisible = await locator.isVisible();
+        if (!isVisible) throw new Error(`Assertion failed: element is not visible`);
+      } else {
+        const text = await locator.innerText();
+        if (!text.toLowerCase().includes((step.value || '').toLowerCase())) {
+          throw new Error(`Assertion failed: expected "${step.value}" found "${text}"`);
+        }
+      }
+    }
+  }
+
+  private async highlight(locator: Locator, type: 'target' | 'success' | 'info' | 'error') {
+    if (this.headless) return;
+    const colors = { target: '#c8f069', success: '#4ade80', info: '#60a5fa', error: '#f87171' };
+    try {
+      await locator.evaluate((el, color) => {
+        const original = el.style.outline;
+        el.style.outline = `3px solid ${color}`;
+        el.style.outlineOffset = '2px';
+        setTimeout(() => el.style.outline = original, 1000);
+      }, colors[type]);
+    } catch {}
   }
 
   // ── Overlay ──────────────────────────────────────────────────────────────────
@@ -313,69 +256,13 @@ export class WebDriver implements Driver {
   }
 
   private async checkForFailures(context: string): Promise<void> {
-    if (!this.page) return;
-    const p = this.page;
-    
-    try {
-      const frames = p.frames();
-      console.log(`[WebDriver] Scanning ${frames.length} frames for failures during: ${context}`);
-
-      for (const frame of frames) {
-        try {
-          const frameUrl = frame.url().trim().toLowerCase();
-          if (!frameUrl || frameUrl === 'about:blank') continue;
-          
-          // Check for CAPTCHA iframes directly via URL
-          if (frameUrl.includes('google.com/recaptcha') || frameUrl.includes('hcaptcha.com') || frameUrl.includes('geetest.com')) {
-            console.warn(`[WebDriver] CAPTCHA IFRAME DETECTED: ${frameUrl}`);
-            throw new Error(`Automation blocked by CAPTCHA`);
-          }
-
-          // Get text content of the frame with a SHORT timeout (1s) to avoid 30s hangs
-          const text = (await frame.innerText('body', { timeout: 1000 }).catch(() => '')).toLowerCase();
-          if (!text) continue;
-          
-          for (const indicator of this.FAILURE_INDICATORS) {
-            if (text.includes(indicator)) {
-              // For CAPTCHA/Robot checks, fail immediately if found anywhere
-              if (indicator.includes('captcha') || indicator.includes('human') || indicator.includes('robot') || indicator.includes('bot')) {
-                console.warn(`[WebDriver] BLOCKER DETECTED in frame text: "${indicator}"`);
-                throw new Error(`Automation blocked by CAPTCHA`);
-              }
-
-              // For generic errors, check if they are actually visible
-              const visible = await frame.evaluate((ind: string) => {
-                const bodyText = document.body.innerText.toLowerCase();
-                if (!bodyText.includes(ind)) return false;
-                const errorEls = Array.from(document.querySelectorAll('.error, .alert, .message-error, .fail, #captcha, .g-recaptcha, [class*="error"], [class*="alert"]'));
-                return errorEls.some(el => {
-                  const style = window.getComputedStyle(el);
-                  return style.display !== 'none' && style.visibility !== 'hidden' && (el as HTMLElement).offsetParent !== null;
-                });
-              }, indicator).catch(() => false);
-
-              if (visible) {
-                console.warn(`[WebDriver] FAILURE DETECTED: "${indicator}" visible in frame`);
-                throw new Error(`Failure detected: "${indicator}" during ${context}. Please check for error messages.`);
-              }
-            }
-          }
-        } catch (frameErr) {
-          // Re-throw our detected failure errors, ignore other frame access errors
-          if (frameErr instanceof Error && (frameErr.message.includes('blocker detected') || frameErr.message.includes('Failure detected'))) {
-             throw frameErr;
-          }
-        }
+    const text = (await this.page!.innerText('body')).toLowerCase();
+    for (const indicator of this.FAILURE_INDICATORS) {
+      if (text.includes(indicator)) {
+        throw new Error(`Failure detected: "${indicator}" during ${context}`);
       }
-    } catch (err) {
-      if (err instanceof Error && (err.message.includes('blocker detected') || err.message.includes('Failure detected'))) {
-        throw err;
-      }
-      console.error(`[WebDriver] Error during failure check: ${err}`);
     }
   }
-
-  // ── Screenshots ───────────────────────────────────────────────────────────────
 
   private async _captureScreenshot(label: string): Promise<string> {
     const name = `${Date.now()}-${label.replace(/\s+/g, '-').slice(0, 40)}.png`;
@@ -397,5 +284,6 @@ export class WebDriver implements Driver {
     await this.browser?.close();
     this.browser = null;
     this.page = null;
+    this.context = null;
   }
 }

@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import type { TestStep } from '../types/index';
 
 export interface TestSuggestion {
   id: string;
@@ -7,7 +8,17 @@ export interface TestSuggestion {
   category: 'auth' | 'navigation' | 'form' | 'search' | 'ecommerce' | 'content' | 'ui';
   priority: 'high' | 'medium' | 'low';
   icon: string;
-  testDescription: string;
+  steps: TestStep[];
+  confidence: {
+    detection: number;
+    selector: number;
+    outcome: number;
+  };
+  testDescription?: string; // Legacy support
+  isNegative?: boolean;
+  isExecutable: boolean;
+  intent: string;
+  expectedState?: string;
   url: string;
   why: string;
 }
@@ -40,38 +51,70 @@ async function deepScanPage(page: any, pageUrl: string): Promise<any[]> {
     const text = (el: Element) => (el as HTMLElement).innerText?.trim() ?? '';
     const attr = (el: Element, a: string) => el.getAttribute(a) ?? '';
 
-    // Helper: get best selector for an element
-    const sel = (el: Element): string => {
-      if (el.id) return `#${CSS.escape(el.id)}`;
-      const aria = attr(el, 'aria-label');
-      if (aria) return `[aria-label="${aria}"]`;
-      const name = attr(el, 'name');
-      if (name) return `[name="${name}"]`;
-      const ph = attr(el, 'placeholder');
-      if (ph) return `[placeholder="${ph}"]`;
-      const t = text(el).slice(0, 40);
+    // Helper: get best multi-strategy selector for an element
+    const sel = (el: Element): { primary: string; fallback: string[] } => {
+      const fallbacks: string[] = [];
       const tag = el.tagName.toLowerCase();
-      if (t && !['div','section','main','body','html','span'].includes(tag)) return `${tag}:has-text("${t}")`;
+      
+      // Preferred: ID
+      if (el.id) {
+        const idSel = `#${CSS.escape(el.id)}`;
+        fallbacks.push(idSel);
+      }
+
+      // Aria labels
+      const aria = attr(el, 'aria-label');
+      if (aria) fallbacks.push(`[aria-label="${aria}"]`);
+
+      // Name / Placeholder
+      const name = attr(el, 'name');
+      if (name) fallbacks.push(`[name="${name}"]`);
+      const ph = attr(el, 'placeholder');
+      if (ph) fallbacks.push(`[placeholder="${ph}"]`);
+
+      // Role + Text (Playwright-like)
+      const role = attr(el, 'role') || (tag === 'button' ? 'button' : tag === 'input' ? 'textbox' : undefined);
+      const t = text(el).slice(0, 40);
+      if (role && t) fallbacks.push(`${role}:has-text("${t}")`);
+      else if (t && !['div','section','main','body','html','span'].includes(tag)) fallbacks.push(`${tag}:has-text("${t}")`);
+
+      // Class-based (last resort)
       const cls = Array.from(el.classList).filter(c => !/^(active|open|hover|visible|hidden|js-)/.test(c)).slice(0, 2);
-      if (cls.length) return `.${cls.join('.')}`;
-      return tag;
+      if (cls.length) fallbacks.push(`.${cls.join('.')}`);
+
+      return {
+        primary: fallbacks[0] || tag,
+        fallback: fallbacks.slice(1)
+      };
     };
+
+    // ── Success Indicators (Outcomes) ──
+    const outcomes = Array.from(document.querySelectorAll('a, button, h1, h2, span'))
+      .filter(el => {
+        const t = text(el).toLowerCase();
+        return /log.?out|sign.?out|welcome|dashboard|my.?account|profile|settings|success|confirmed/i.test(t);
+      })
+      .map(el => ({ label: text(el).slice(0, 30), sel: sel(el), context: text(el) }));
+
+    const hasOutcome = (pattern: RegExp) => outcomes.some(o => pattern.test(o.context.toLowerCase()));
 
     // ── Login form ──
     const pwInput = document.querySelector('input[type="password"]');
     if (pwInput) {
       const emailInput = document.querySelector('input[type="email"], input[type="text"][name*="user" i], input[type="text"][name*="email" i], input[placeholder*="email" i], input[placeholder*="username" i]');
       const submitBtn = document.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
-      const btnText = submitBtn ? text(submitBtn).slice(0, 30) : 'Sign in';
-      found.push({
-        type: 'login',
-        label: 'Login form',
-        emailSel: emailInput ? sel(emailInput) : 'input[type="email"]',
-        passSel: sel(pwInput),
-        btnSel: submitBtn ? sel(submitBtn) : 'button[type="submit"]',
-        btnText,
-        url,
-      });
+      if (submitBtn) {
+        found.push({
+          type: 'login',
+          label: 'Login flow',
+          emailSel: emailInput ? sel(emailInput) : sel(document.createElement('input')), // Placeholder if not found
+          passSel: sel(pwInput),
+          btnSel: sel(submitBtn),
+          btnText: text(submitBtn).slice(0, 30),
+          outcomes: outcomes.filter(o => /log.?out|dashboard|my.?account/i.test(o.context)),
+          url,
+        });
+      }
     }
 
     // ── Signup / register ──
@@ -84,7 +127,13 @@ async function deepScanPage(page: any, pageUrl: string): Promise<any[]> {
     const searchEl = document.querySelector('input[type="search"], input[name="q"], input[name="search"], [role="search"] input, input[placeholder*="search" i], input[placeholder*="suche" i], input[placeholder*="zoek" i]');
     if (searchEl) {
       const searchBtn = searchEl.closest('form')?.querySelector('button, input[type="submit"]');
-      found.push({ type: 'search', label: attr(searchEl, 'placeholder') || 'Search', searchSel: sel(searchEl), btnSel: searchBtn ? sel(searchBtn) : '[type="submit"]', url });
+      found.push({ 
+        type: 'search', 
+        label: attr(searchEl, 'placeholder') || 'Search flow', 
+        searchSel: sel(searchEl), 
+        btnSel: searchBtn ? sel(searchBtn) : { primary: '[type="submit"]', fallback: [] }, 
+        url 
+      });
     }
 
     // ── Navigation links ──
@@ -102,18 +151,7 @@ async function deepScanPage(page: any, pageUrl: string): Promise<any[]> {
       }
     }
 
-    // ── Cart ──
-    const cartEl = document.querySelector('[class*="cart" i], [class*="basket" i], [aria-label*="cart" i], [aria-label*="basket" i], [href*="cart"], [href*="basket"], [href*="warenkorb"]');
-    if (cartEl) found.push({ type: 'cart', label: 'Shopping cart', cartSel: sel(cartEl), url });
-
-    // ── Product listing ──
-    const productGrid = document.querySelector('[class*="product-list" i], [class*="product-grid" i], [class*="catalog" i], [class*="item-list" i], ul.products, .products');
-    if (productGrid) {
-      const items = productGrid.querySelectorAll('li, [class*="item" i], [class*="product" i]');
-      found.push({ type: 'products', label: `Product grid (${items.length} items)`, gridSel: sel(productGrid), itemCount: items.length, url });
-    }
-
-    // ── Contact / generic forms ──
+    // ── Forms ──
     Array.from(document.querySelectorAll('form')).forEach(form => {
       if (form.querySelector('input[type="password"]')) return; // skip login
       const inputs = Array.from(form.querySelectorAll('input:not([type="hidden"]):not([type="submit"])'));
@@ -121,16 +159,17 @@ async function deepScanPage(page: any, pageUrl: string): Promise<any[]> {
       if (inputs.length < 1 && textareas.length < 1) return;
       const heading = form.closest('section, div, article')?.querySelector('h1,h2,h3')?.textContent?.trim().slice(0, 40) ?? 'Form';
       const submitBtn = form.querySelector('[type="submit"], button:not([type])');
-      found.push({
-        type: 'form',
-        label: heading,
-        formSel: form.id ? `#${form.id}` : 'form',
-        inputCount: inputs.length,
-        hasTextarea: textareas.length > 0,
-        firstInputSel: inputs[0] ? sel(inputs[0]) : 'input:visible',
-        btnSel: submitBtn ? sel(submitBtn) : 'button[type="submit"]',
-        url,
-      });
+      if (submitBtn) {
+        found.push({
+          type: 'form',
+          label: heading,
+          formSel: sel(form),
+          inputCount: inputs.length,
+          firstInputSel: sel(inputs[0]),
+          btnSel: sel(submitBtn),
+          url,
+        });
+      }
     });
 
     // ── CTA buttons ──
@@ -138,26 +177,8 @@ async function deepScanPage(page: any, pageUrl: string): Promise<any[]> {
       .filter(el => { const t = text(el); return t.length > 2 && t.length < 50; })
       .slice(0, 6);
     ctaBtns.forEach(btn => {
-      const btnText = text(btn).slice(0, 40);
-      const href = (btn as HTMLAnchorElement).href;
-      found.push({ type: 'cta', label: btnText, btnSel: sel(btn), href, url });
+      found.push({ type: 'cta', label: text(btn).slice(0, 40), btnSel: sel(btn), url });
     });
-
-    // ── Images / hero ──
-    const hero = document.querySelector('[class*="hero" i], [class*="banner" i], [class*="slider" i], [class*="carousel" i], .slideshow');
-    if (hero) found.push({ type: 'hero', label: 'Hero / banner section', heroSel: sel(hero), url });
-
-    // ── Page heading ──
-    const h1 = document.querySelector('h1');
-    if (h1) found.push({ type: 'heading', label: text(h1).slice(0, 60), h1Sel: 'h1', url });
-
-    // ── Footer ──
-    const footer = document.querySelector('footer, [role="contentinfo"], .footer, #footer');
-    if (footer) found.push({ type: 'footer', label: 'Footer', footerSel: sel(footer), url });
-
-    // ── Header ──
-    const header = document.querySelector('header, [role="banner"], .header, #header');
-    if (header) found.push({ type: 'header', label: 'Header', headerSel: sel(header), url });
 
     return found;
   }, pageUrl);
@@ -165,226 +186,208 @@ async function deepScanPage(page: any, pageUrl: string): Promise<any[]> {
 
 function buildSuggestions(elements: any[], baseUrl: string): TestSuggestion[] {
   const suggestions: TestSuggestion[] = [];
-  let id = 1;
+  let idIdx = 1;
 
   const has = (type: string) => elements.some(e => e.type === type);
   const get = (type: string) => elements.find(e => e.type === type);
   const getAll = (type: string) => elements.filter(e => e.type === type);
 
-  // ── Homepage load ──
-  suggestions.push({
-    id: `sug-${id++}`, title: 'Homepage loads correctly',
-    description: 'Verify the page loads with header, content and footer visible',
-    category: 'ui', priority: 'high', icon: '🏠',
-    testDescription: `verify header is visible, verify footer is visible, scroll to bottom, take screenshot`,
+  // Helper to create a suggestion with defaults
+  const createSug = (base: Partial<TestSuggestion>): TestSuggestion => ({
+    id: `sug-${idIdx++}`,
+    title: '',
+    description: '',
+    category: 'ui',
+    priority: 'medium',
+    icon: '📝',
+    steps: [],
+    confidence: { detection: 0.8, selector: 0.8, outcome: 0.5 },
+    isExecutable: false,
+    intent: 'generic',
     url: baseUrl,
-    why: 'Basic page load test catches server errors, broken layouts and missing elements instantly.',
-  });
+    why: '',
+    ...base
+  } as TestSuggestion);
 
-  // ── Header ──
-  if (has('header')) {
-    const h = get('header');
-    suggestions.push({
-      id: `sug-${id++}`, title: 'Header is always visible',
-      description: 'Verify the header renders correctly at the top of the page',
-      category: 'ui', priority: 'high', icon: '📌',
-      testDescription: `verify header is visible, take screenshot`,
-      url: h.url,
-      why: 'Header contains navigation and branding — broken header affects every page.',
-    });
-  }
-
-  // ── Navigation ──
-  if (has('navigation')) {
-    const nav = get('navigation');
-    const linkTests = nav.links.slice(0, 3).map((l: any) =>
-      `click ${l.sel}, verify page is visible, take screenshot`
-    ).join(', then navigate back and ');
-
-    suggestions.push({
-      id: `sug-${id++}`, title: 'Navigation menu works',
-      description: `Verify ${nav.links.length} nav links are visible and clickable`,
-      category: 'navigation', priority: 'high', icon: '🧭',
-      testDescription: `verify navigation is visible, take screenshot`,
-      url: nav.url,
-      why: 'Navigation is present on every page — broken links confuse and lose users.',
-    });
-
-    // Individual nav link tests
-    nav.links.slice(0, 4).forEach((link: any) => {
-      if (!link.href || link.href === '#' || link.href.startsWith('javascript')) return;
-      suggestions.push({
-        id: `sug-${id++}`, title: `"${link.text}" page loads`,
-        description: `Click "${link.text}" in the navigation and verify page loads`,
-        category: 'navigation', priority: 'medium', icon: '🔗',
-        testDescription: `click ${link.sel}, verify header is visible, take screenshot`,
-        url: nav.url,
-        why: `"${link.text}" is a key page in your navigation — users expect it to work.`,
-      });
-    });
-  }
-
-  // ── Login ──
+  // ── 1. Auth Flows (Highest Priority) ──
   if (has('login')) {
     const login = get('login');
-    suggestions.push({
-      id: `sug-${id++}`, title: 'Login form fields render correctly',
-      description: 'Verify email/username and password fields are visible before interacting',
-      category: 'auth', priority: 'high', icon: '👁️',
-      testDescription: `verify ${login.emailSel} is visible, verify ${login.passSel} is visible, take screenshot`,
-      url: login.url,
-      why: 'If input fields fail to render, users cannot log in at all.',
-    });
-    suggestions.push({
-      id: `sug-${id++}`, title: 'Login with valid credentials',
-      description: 'Fill login form with real credentials — replace the placeholder values with actual ones, then verify redirect',
-      category: 'auth', priority: 'high', icon: '🔐',
-      testDescription: `fill ${login.emailSel} with 'your@email.com', fill ${login.passSel} with 'yourpassword', click ${login.btnSel}, wait 2000, verify url contains 'dashboard', take screenshot`,
-      url: login.url,
-      why: 'Login is the most critical flow — always verify the URL changed after submit, not just that the button was clicked.',
-    });
-    suggestions.push({
-      id: `sug-${id++}`, title: 'Login shows error for wrong password',
-      description: 'Verify an error message appears with wrong credentials',
-      category: 'auth', priority: 'high', icon: '🔒',
-      testDescription: `fill ${login.emailSel} with 'wrong@email.com', fill ${login.passSel} with 'wrongpass123', click ${login.btnSel}, wait 1000, take screenshot`,
-      url: login.url,
-      why: 'Error handling in login is critical — screenshot will reveal whether an error message appears.',
-    });
+    
+    // Positive Login Flow
+    suggestions.push(createSug({
+      title: 'Login with valid credentials',
+      description: 'Verify a user can successfully authenticate and reach the dashboard',
+      category: 'auth',
+      priority: 'high',
+      icon: '🔐',
+      intent: 'login_success',
+      isExecutable: true,
+      confidence: { detection: 1.0, selector: 0.9, outcome: 0.8 },
+      expectedState: 'Authenticated session, user redirected to dashboard or profile',
+      steps: [
+        { action: 'navigate', value: login.url, description: 'Navigate to login page' },
+        { action: 'fill', target: login.emailSel, value: '{{user.email}}', description: 'Enter email address' },
+        { action: 'fill', target: login.passSel, value: '{{user.password}}', description: 'Enter password' },
+        { action: 'click', target: login.btnSel, description: `Click ${login.btnText}` },
+        { action: 'wait', value: '2000', description: 'Wait for redirect' },
+        { 
+          action: 'assert', 
+          target: { 
+            primary: 'url', 
+            fallback: login.outcomes?.map((o: any) => o.sel.primary) || ['text:has-text("Logout")', 'text:has-text("Welcome")'] 
+          }, 
+          value: 'dashboard', 
+          assertType: 'url', 
+          description: 'Verify redirected to dashboard AND logout button is visible' 
+        }
+      ],
+      why: 'Login is the single most critical flow. Any breakage here blocks all users.'
+    }));
+
+    // Negative Login: Invalid Password
+    suggestions.push(createSug({
+      title: 'Login fails with invalid password',
+      description: 'Verify system prevents access and shows error for wrong credentials',
+      category: 'auth',
+      priority: 'high',
+      icon: '🔒',
+      intent: 'login_failure',
+      isNegative: true,
+      isExecutable: true,
+      confidence: { detection: 1.0, selector: 0.9, outcome: 0.7 },
+      steps: [
+        { action: 'navigate', value: login.url, description: 'Navigate to login page' },
+        { action: 'fill', target: login.emailSel, value: '{{user.email}}', description: 'Enter valid email' },
+        { action: 'fill', target: login.passSel, value: 'wrong_password_123', description: 'Enter incorrect password' },
+        { action: 'click', target: login.btnSel, description: 'Submit form' },
+        { 
+          action: 'assert', 
+          target: { primary: 'body', fallback: ['[class*="error" i]', '[id*="error" i]', 'text:has-text("invalid")', 'text:has-text("wrong")'] }, 
+          assertType: 'text', 
+          description: 'Verify an error message is displayed' 
+        }
+      ],
+      why: 'Security and user feedback: ensure users are told why their login failed.'
+    }));
   }
 
-  // ── Signup ──
-  if (has('signup')) {
-    const s = get('signup');
-    suggestions.push({
-      id: `sug-${id++}`, title: 'Sign up button is visible and clickable',
-      description: `Verify the "${s.label}" button works`,
-      category: 'auth', priority: 'medium', icon: '✍️',
-      testDescription: `verify ${s.btnSel} is visible, click ${s.btnSel}, take screenshot`,
-      url: s.url,
-      why: 'Registration is the entry point for new users — a broken signup loses customers.',
-    });
-  }
-
-  // ── Search ──
+  // ── 2. Search Flows ──
   if (has('search')) {
     const s = get('search');
-    suggestions.push({
-      id: `sug-${id++}`, title: 'Search bar is visible and functional',
-      description: `Type a query in the search field and verify results load`,
-      category: 'search', priority: 'high', icon: '🔍',
-      testDescription: `verify ${s.searchSel} is visible, fill ${s.searchSel} with 'test', click ${s.btnSel}, take screenshot`,
-      url: s.url,
-      why: 'Search is a primary discovery tool — broken search means users cannot find products or content.',
-    });
-    suggestions.push({
-      id: `sug-${id++}`, title: 'Empty search is handled gracefully',
-      description: 'Submit empty search and verify no errors appear',
-      category: 'search', priority: 'low', icon: '🔎',
-      testDescription: `click ${s.searchSel}, click ${s.btnSel}, take screenshot`,
-      url: s.url,
-      why: 'Empty search queries often trigger server errors that are easy to prevent.',
+    
+    // Positive Search
+    suggestions.push(createSug({
+      title: 'Search results load correctly',
+      description: 'Verify that typing a query returns matching results',
+      category: 'search',
+      priority: 'high',
+      icon: '🔍',
+      intent: 'search_query',
+      isExecutable: true,
+      confidence: { detection: 0.9, selector: 0.8, outcome: 0.6 },
+      steps: [
+        { action: 'fill', target: s.searchSel, value: 'test', description: 'Type "test" into search' },
+        { action: 'press', value: 'Enter', target: s.searchSel, description: 'Press Enter' },
+        { action: 'wait', value: '1000', description: 'Wait for results' },
+        { 
+          action: 'assert', 
+          target: { primary: 'body', fallback: ['[class*="result" i]', '[id*="results" i]', 'text:has-text("Results")'] }, 
+          assertType: 'visible', 
+          description: 'Verify results container or "Results" text is visible' 
+        }
+      ],
+      why: 'Search is the primary discovery tool. Broken search means users can\'t find content.'
+    }));
+
+    // Negative: Empty Search
+    suggestions.push(createSug({
+      title: 'Empty search is handled gracefully',
+      description: 'Verify system doesn\'t crash when submitting an empty query',
+      category: 'search',
+      priority: 'low',
+      icon: '🔎',
+      intent: 'search_empty',
+      isNegative: true,
+      isExecutable: true,
+      steps: [
+        { action: 'click', target: s.searchSel, description: 'Focus search' },
+        { action: 'click', target: s.btnSel, description: 'Click search button without input' },
+        { 
+          action: 'assert', 
+          target: { primary: 'url', fallback: ['body'] }, 
+          assertType: 'visible', 
+          description: 'Verify page remains stable and responsive' 
+        }
+      ],
+      why: 'Prevents server-side errors (500s) on empty queries.'
+    }));
+  }
+
+  // ── 3. Navigation Flows ──
+  if (has('navigation')) {
+    const nav = get('navigation');
+    nav.links.slice(0, 2).forEach((link: any) => {
+      if (!link.href || link.href.includes('#')) return;
+      suggestions.push(createSug({
+        title: `Navigate to ${link.text}`,
+        description: `Verify clicking "${link.text}" leads to the correct page`,
+        category: 'navigation',
+        priority: 'medium',
+        icon: '🧭',
+        intent: 'navigation_link',
+        isExecutable: true,
+        steps: [
+          { action: 'click', target: link.sel, description: `Click ${link.text}` },
+          { action: 'assert', target: { primary: 'url', fallback: [] }, value: link.href, assertType: 'url', description: `Verify URL contains ${link.href}` }
+        ],
+        why: 'Core navigation path. Broken links lead to a poor user experience.'
+      }));
     });
   }
 
-  // ── Cart ──
-  if (has('cart')) {
-    const c = get('cart');
-    suggestions.push({
-      id: `sug-${id++}`, title: 'Cart icon is visible and accessible',
-      description: 'Verify the shopping cart button renders and is clickable',
-      category: 'ecommerce', priority: 'high', icon: '🛒',
-      testDescription: `verify ${c.cartSel} is visible, click ${c.cartSel}, take screenshot`,
-      url: c.url,
-      why: 'Cart access is essential for any ecommerce site — a broken cart means no purchases.',
-    });
-  }
-
-  // ── Product grid ──
-  if (has('products')) {
-    const p = get('products');
-    suggestions.push({
-      id: `sug-${id++}`, title: `Product grid loads (${p.itemCount} items)`,
-      description: 'Verify products are displayed correctly in the listing',
-      category: 'ecommerce', priority: 'high', icon: '📦',
-      testDescription: `verify ${p.gridSel} is visible, scroll to bottom, take screenshot`,
-      url: p.url,
-      why: 'Product display is the core of an ecommerce site — if products don\'t show, revenue stops.',
-    });
-  }
-
-  // ── Forms ──
-  getAll('form').forEach(form => {
-    suggestions.push({
-      id: `sug-${id++}`, title: `"${form.label}" form is visible`,
-      description: `Verify the form with ${form.inputCount} fields renders correctly`,
-      category: 'form', priority: 'medium', icon: '📋',
-      testDescription: `verify ${form.formSel} is visible, verify ${form.firstInputSel} is visible, take screenshot`,
-      url: form.url,
-      why: `Forms are conversion points — a broken "${form.label}" form loses leads or orders.`,
-    });
-    if (form.inputCount >= 2) {
-      suggestions.push({
-        id: `sug-${id++}`, title: `"${form.label}" form submits correctly`,
-        description: 'Fill required fields and submit',
-        category: 'form', priority: 'medium', icon: '📤',
-        testDescription: `fill ${form.firstInputSel} with 'test input', click ${form.btnSel}, take screenshot`,
-        url: form.url,
-        why: 'Form submission is the action that drives conversions — test it end-to-end.',
-      });
-    }
+  // ── 4. Form Flows ──
+  getAll('form').slice(0, 2).forEach(form => {
+    suggestions.push(createSug({
+      title: `Submit "${form.label}" form`,
+      description: `Verify that the ${form.label} form can be filled and submitted`,
+      category: 'form',
+      priority: 'high',
+      icon: '📋',
+      intent: 'form_submission',
+      isExecutable: true,
+      confidence: { detection: 0.8, selector: 0.7, outcome: 0.4 },
+      steps: [
+        { action: 'fill', target: form.firstInputSel, value: 'Test Input', description: 'Fill first field' },
+        { action: 'click', target: form.btnSel, description: 'Submit form' },
+        { action: 'wait', value: '1000', description: 'Wait for response' },
+        { 
+          action: 'assert', 
+          target: { primary: 'body', fallback: ['text:has-text("Success")', 'text:has-text("Thank you")', '[class*="success" i]'] }, 
+          assertType: 'visible', 
+          description: 'Verify success message or redirect' 
+        }
+      ],
+      why: 'Forms are lead generation points. A broken form is a lost conversion.'
+    }));
   });
 
-  // ── CTA buttons ──
-  getAll('cta').slice(0, 4).forEach(cta => {
-    suggestions.push({
-      id: `sug-${id++}`, title: `"${cta.label}" button works`,
-      description: `Click the "${cta.label}" button and verify response`,
-      category: 'ui', priority: 'medium', icon: '🖱️',
-      testDescription: `verify ${cta.btnSel} is visible, click ${cta.btnSel}, take screenshot`,
-      url: cta.url,
-      why: `"${cta.label}" is a call-to-action — it drives user engagement and should always work.`,
-    });
+  // ── 5. Generic UI ──
+  getAll('cta').slice(0, 2).forEach(cta => {
+    suggestions.push(createSug({
+      title: `Main CTA: "${cta.label}"`,
+      description: `Verify the primary call-to-action is functional`,
+      category: 'ui',
+      priority: 'medium',
+      icon: '🖱️',
+      intent: 'cta_click',
+      isExecutable: true,
+      steps: [
+        { action: 'click', target: cta.btnSel, description: `Click ${cta.label}` },
+        { action: 'wait', value: '500', description: 'Wait for interaction' }
+      ],
+      why: 'High-visibility CTAs drive the main user journeys.'
+    }));
   });
-
-  // ── Hero ──
-  if (has('hero')) {
-    const h = get('hero');
-    suggestions.push({
-      id: `sug-${id++}`, title: 'Hero banner displays correctly',
-      description: 'Verify the main banner or hero image loads without breaking layout',
-      category: 'ui', priority: 'medium', icon: '🖼️',
-      testDescription: `verify ${h.heroSel} is visible, take screenshot`,
-      url: h.url,
-      why: 'The hero is the first thing users see — a broken hero damages first impressions.',
-    });
-  }
-
-  // ── Page heading ──
-  if (has('heading')) {
-    const h = get('heading');
-    suggestions.push({
-      id: `sug-${id++}`, title: `Page title "${h.label.slice(0, 30)}" is correct`,
-      description: 'Verify the main heading renders with the right text',
-      category: 'content', priority: 'low', icon: '📝',
-      testDescription: `verify ${h.h1Sel} is visible, take screenshot`,
-      url: h.url,
-      why: 'Headings affect SEO and user orientation — missing or wrong headings are easy to catch.',
-    });
-  }
-
-  // ── Footer ──
-  if (has('footer')) {
-    const f = get('footer');
-    suggestions.push({
-      id: `sug-${id++}`, title: 'Footer is visible at bottom',
-      description: 'Scroll to bottom and verify footer loads correctly',
-      category: 'ui', priority: 'low', icon: '⬇️',
-      testDescription: `scroll to bottom, verify ${f.footerSel} is visible, take screenshot`,
-      url: f.url,
-      why: 'Footer contains legal links and contact info — missing footer can cause compliance issues.',
-    });
-  }
 
   // Sort: high → medium → low
   const order = { high: 0, medium: 1, low: 2 };

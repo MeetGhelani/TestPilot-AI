@@ -56,7 +56,10 @@ function saveHistory(history: any[]) {
 
 function loadSuggestions(): ScanSummary[] {
   ensureDataFiles();
-  try { return JSON.parse(fs.readFileSync(SUGGESTIONS_FILE, 'utf8')); } catch { return []; }
+  try { 
+    const scans = JSON.parse(fs.readFileSync(SUGGESTIONS_FILE, 'utf8'));
+    return scans.map(normaliseScanSummary);
+  } catch { return []; }
 }
 
 function saveSuggestions(scans: ScanSummary[]) {
@@ -93,15 +96,67 @@ function normaliseResult(result: any): any {
   };
 }
 
+/** Ensure legacy suggestions have the new structured fields */
+function normaliseScanSummary(summary: any): any {
+  return {
+    ...summary,
+    suggestions: (summary.suggestions ?? []).map((sug: any) => {
+      // If missing steps but has testDescription, it's a legacy suggestion
+      const steps = sug.steps || (sug.testDescription ? [{
+        action: 'manual',
+        description: sug.testDescription,
+        intent: 'legacy_suggestion'
+      }] : []);
+
+      return {
+        ...sug,
+        steps,
+        isExecutable: !!sug.steps, // Only newly generated are executable
+        confidence: sug.confidence || {
+          detection: 0.8,
+          selector: 0.8,
+          outcome: 0.8
+        },
+        intent: sug.intent || 'legacy'
+      };
+    })
+  };
+}
+
+/** Ensure recordings have the correct structure */
+function normaliseRecording(rec: any): any {
+  return {
+    ...rec,
+    steps: (rec.steps ?? []).map((s: any) => ({
+      ...s,
+      // Target could be string or object, driver handles both but let's ensure it's defined
+      target: s.target || undefined
+    }))
+  };
+}
+
 // ─── Run Test ─────────────────────────────────────────────────────────────────
 
 app.post('/api/run-test', async (req, res) => {
-  const { platform, url, test, headless, authUser, authPass } = req.body;
+  const { platform, url, test, headless, authUser, authPass, isStructured } = req.body;
   if (!platform || !url || !test) {
     return res.status(400).json({ error: 'platform, url, and test are required' });
   }
   try {
-    const plan: TestPlan = await generateTestPlan(test, platform, url);
+    let plan: TestPlan;
+    if (isStructured) {
+      const steps = typeof test === 'string' ? JSON.parse(test) : test;
+      plan = {
+        title: 'Suggested Test Execution',
+        platform: platform as any,
+        naturalLanguageInput: 'Structured suggested test',
+        steps,
+        version: 1,
+      };
+    } else {
+      plan = await generateTestPlan(test, platform, url);
+    }
+    
     const result = await runTest(plan, url, {
       outputDir: REPORTS_DIR,
       headless: headless ?? true,
@@ -567,14 +622,19 @@ app.post('/api/suggestions/rename', (req, res) => {
 });
 
 app.post('/api/suggestions/update', (req, res) => {
-  const { url, suggestionId, testDescription } = req.body;
+  const { url, suggestionId, testDescription, steps } = req.body;
   if (!url || !suggestionId) return res.status(400).json({ error: 'url and suggestionId are required' });
   const all = loadSuggestions().map(s => {
     if (s.url !== url) return s;
     return {
       ...s,
       suggestions: s.suggestions.map(sg =>
-        sg.id === suggestionId ? { ...sg, testDescription } : sg
+        sg.id === suggestionId ? { 
+          ...sg, 
+          testDescription: testDescription ?? sg.testDescription, 
+          steps: steps ?? sg.steps,
+          isExecutable: steps ? true : sg.isExecutable
+        } : sg
       ),
     };
   });
@@ -621,7 +681,8 @@ app.post('/api/record/cancel', async (_req, res) => {
 // ─── Recordings CRUD ──────────────────────────────────────────────────────────
 
 app.get('/api/recordings', (_req, res) => {
-  res.json(loadRecordings(REPORTS_DIR));
+  const recordings = loadRecordings(REPORTS_DIR);
+  res.json(recordings.map(normaliseRecording));
 });
 
 app.delete('/api/recordings/:id', (req, res) => {

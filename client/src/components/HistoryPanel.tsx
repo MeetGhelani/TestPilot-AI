@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { TestResult, AuditResult, HistoryItem } from '../App'
 import ScreenshotViewer from './ScreenshotViewer'
 
@@ -7,14 +7,28 @@ interface Props {
   onClear: () => void
   onDeleteItem: (id: string) => void
   onDeleteItems: (ids: string[]) => void
+  highlightId?: string | null
+  setHighlightId?: (id: string | null) => void
 }
 
-export default function HistoryPanel({ history, onClear, onDeleteItem, onDeleteItems }: Props) {
+export default function HistoryPanel({ history, onClear, onDeleteItem, onDeleteItems, highlightId, setHighlightId }: Props) {
   const [selected, setSelected] = useState<HistoryItem | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [selectedForDeletion, setSelectedForDeletion] = useState<Set<string>>(new Set())
+
+  // Auto-select item if highlightId is passed
+  useEffect(() => {
+    if (highlightId && history.length > 0) {
+      const item = history.find(h => (h.id === highlightId) || (('timestamp' in h) && h.timestamp === highlightId) || (('startedAt' in h) && h.startedAt === highlightId))
+      if (item) {
+        setSelected(item)
+        // Reset so it doesn't re-select if user closes it
+        setHighlightId?.(null)
+      }
+    }
+  }, [highlightId, history, setHighlightId])
 
   if (history.length === 0) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 12, opacity: 0.4 }}>
@@ -29,9 +43,9 @@ export default function HistoryPanel({ history, onClear, onDeleteItem, onDeleteI
     <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 
       {/* ── Left: history list ── */}
-      <div style={{ width: 380, flexShrink: 0 }}>
+      <div style={{ width: 350, flexShrink: 0, position: 'sticky', top: 112, alignSelf: 'flex-start' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 400 }}>History</h2>
+          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 28, fontWeight: 600 }}>History</h2>
           <div style={{ display: 'flex', gap: 8 }}>
             {isEditing ? (
               <>
@@ -67,7 +81,7 @@ export default function HistoryPanel({ history, onClear, onDeleteItem, onDeleteI
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="custom-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: 'calc(100vh - 220px)', paddingRight: 8 }}>
           {[...history].reverse().map((r, i) => {
             const isSelected = selected === r
             const audit = isAudit(r)
@@ -106,7 +120,8 @@ export default function HistoryPanel({ history, onClear, onDeleteItem, onDeleteI
                     ? 'var(--fail-glow)' 
                     : (isSelected ? 'var(--accent-glow)' : 'none'),
                   transform: isChecked ? 'translateX(2px)' : 'none',
-                  opacity: isEditing && !isChecked ? 0.8 : 1
+                  opacity: isEditing && !isChecked ? 0.8 : 1,
+                  flexShrink: 0
                 }}
                 onMouseEnter={e => {
                   if (!isChecked && !isSelected) {

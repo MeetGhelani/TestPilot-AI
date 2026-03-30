@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 export interface EditableStep {
   action: string
-  target?: string
+  target?: string | { primary: string; fallback: string[] }
   value?: string
   description: string
 }
@@ -31,8 +31,9 @@ function validateSteps(steps: EditableStep[]): ValidationIssue[] {
   const issues: ValidationIssue[] = []
 
   steps.forEach((step, i) => {
+    const targetStr = typeof step.target === 'string' ? step.target : step.target?.primary
     // Missing target
-    if (NEEDS_TARGET.includes(step.action) && !step.target?.trim()) {
+    if (NEEDS_TARGET.includes(step.action) && !targetStr?.trim()) {
       issues.push({ stepIndex: i, message: `"${step.action}" needs a target selector`, severity: 'error' })
     }
     // Missing value
@@ -44,7 +45,7 @@ function validateSteps(steps: EditableStep[]): ValidationIssue[] {
       issues.push({ stepIndex: i, message: 'Replace placeholder credentials with real values', severity: 'warning' })
     }
     // SVG selector
-    if (step.target === 'svg' || step.target === 'path') {
+    if (targetStr === 'svg' || targetStr === 'path') {
       issues.push({ stepIndex: i, message: 'SVG selector may fail — use aria-label or parent element', severity: 'warning' })
     }
     // No navigate at start for web tests
@@ -94,7 +95,8 @@ export default function StepEditor({ steps, onChange }: Props) {
     const updated = [...steps]
     // Auto-generate description if blank
     if (!editStep.description.trim()) {
-      editStep.description = `${editStep.action}${editStep.target ? ` on ${editStep.target}` : ''}${editStep.value ? ` = "${editStep.value}"` : ''}`
+      const targetStr = typeof editStep.target === 'string' ? editStep.target : editStep.target?.primary
+      editStep.description = `${editStep.action}${targetStr ? ` on ${targetStr}` : ''}${editStep.value ? ` = "${editStep.value}"` : ''}`
     }
     updated[editingIdx] = editStep
     update(updated)
@@ -104,7 +106,8 @@ export default function StepEditor({ steps, onChange }: Props) {
   const addStep = () => {
     const step = { ...newStep }
     if (!step.description.trim()) {
-      step.description = `${step.action}${step.target ? ` on ${step.target}` : ''}${step.value ? ` = "${step.value}"` : ''}`
+      const targetStr = typeof step.target === 'string' ? step.target : step.target?.primary
+      step.description = `${step.action}${targetStr ? ` on ${targetStr}` : ''}${step.value ? ` = "${step.value}"` : ''}`
     }
     update([...steps, step])
     setNewStep({ action: 'click', target: '', value: '', description: '' })
@@ -198,7 +201,18 @@ export default function StepEditor({ steps, onChange }: Props) {
                     <label style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--font-mono)', display: 'block', marginBottom: 4 }}>
                       SELECTOR <span style={{ color: 'var(--text3)', fontWeight: 400 }}>— e.g. #email, button:has-text("Login"), [aria-label="Search"]</span>
                     </label>
-                    <input style={inp} value={editStep.target ?? ''} onChange={e => setEditStep({ ...editStep, target: e.target.value })} placeholder='e.g. #username or button:has-text("Submit")' />
+                    <input style={inp} 
+                      value={typeof editStep.target === 'string' ? editStep.target : editStep.target?.primary ?? ''} 
+                      onChange={e => {
+                        const val = e.target.value
+                        if (typeof editStep.target === 'object' && editStep.target !== null) {
+                          setEditStep({ ...editStep, target: { ...editStep.target, primary: val } })
+                        } else {
+                          setEditStep({ ...editStep, target: val })
+                        }
+                      }} 
+                      placeholder='e.g. #username or button:has-text("Submit")' 
+                    />
                   </div>
                 )}
 
@@ -238,10 +252,12 @@ export default function StepEditor({ steps, onChange }: Props) {
 
                 {/* Step info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, color: 'var(--text)' }}>{step.description || `${step.action}${step.target ? ` › ${step.target}` : ''}`}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text)' }}>
+                    {step.description || `${step.action}${ (typeof step.target === 'string' ? step.target : step.target?.primary) ? ` › ${typeof step.target === 'string' ? step.target : step.target?.primary}` : ''}`}
+                  </div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     <span style={{ color: ACTION_COLOR[step.action] ?? 'var(--text3)', marginRight: 6 }}>{step.action}</span>
-                    {step.target && <span style={{ marginRight: 6 }}>{step.target}</span>}
+                    {step.target && <span style={{ marginRight: 6 }}>{typeof step.target === 'string' ? step.target : step.target.primary}</span>}
                     {step.value && <span style={{ color: 'var(--text2)' }}>= "{step.value}"</span>}
                   </div>
                   {stepIssues.length > 0 && (
@@ -274,7 +290,11 @@ export default function StepEditor({ steps, onChange }: Props) {
             {ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
           {NEEDS_TARGET.includes(newStep.action) && (
-            <input style={inp} value={newStep.target ?? ''} onChange={e => setNewStep({ ...newStep, target: e.target.value })} placeholder='Selector e.g. #submit or button:has-text("OK")' />
+            <input style={inp} 
+              value={typeof newStep.target === 'string' ? newStep.target : newStep.target?.primary ?? ''} 
+              onChange={e => setNewStep({ ...newStep, target: e.target.value })} 
+              placeholder='Selector e.g. #submit or button:has-text("OK")' 
+            />
           )}
           {NEEDS_VALUE.includes(newStep.action) && (
             <input style={inp} value={newStep.value ?? ''} onChange={e => setNewStep({ ...newStep, value: e.target.value })} placeholder={newStep.action === 'navigate' ? 'https://...' : newStep.action === 'wait' ? '1000' : 'value'} />
