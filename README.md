@@ -8,28 +8,16 @@ No coding required — describe tests in plain English, record interactions, or 
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
-npm install --legacy-peer-deps
+# 1. Install ALL dependencies (root, client, and server)
+npm run install-all
 
-# 2. Install Playwright browsers
+# OR: Install everything and start the dev environment in one command
+npm run setup
+
+# 2. Install Playwright browsers (if first time)
 npx playwright install chromium
 
-# 3. Install client dependencies
-cd client
-npm install --legacy-peer-deps
-cd ..
-
-# 4. Start the backend server (Terminal 1)
-npx ts-node server/index.ts
-
-# 5. Start the frontend (Terminal 2)
-cd client
-npm run dev
-
-# 6. Run a test via CLI (Optional)
-npx ts-node src/cli.ts -p web -u https://example.com -t "verify header is visible"
-
-# 7. Open in browser
+# 3. Access UI
 # http://localhost:5173
 ```
 

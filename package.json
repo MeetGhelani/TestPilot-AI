@@ -4,9 +4,13 @@
   "description": "AI-powered functional testing tool for web, mobile, and desktop apps",
   "scripts": {
     "server": "ts-node server/index.ts",
-    "client": "cd client && npm run dev",
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "build": "tsc"
+    "client": "npm run dev --prefix client",
+    "dev": "concurrently --kill-others -n \"CLIENT,SERVER\" -c \"cyan,magenta\" \"npm run client\" \"npm run server\"",
+    "build": "tsc",
+    "install-client": "npm install --prefix client --legacy-peer-deps",
+    "install-server": "npm install --prefix server --legacy-peer-deps",
+    "install-all": "npm install --legacy-peer-deps && npm run install-client && npm run install-server",
+    "setup": "npm run install-all && npm run dev"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",
@@ -29,7 +33,7 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.4.0"
   },
-  "ts-node": {
+  "ts-node": {  
     "transpileOnly": true,
     "esm": false
   }
