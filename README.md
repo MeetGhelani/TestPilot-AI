@@ -1,6 +1,6 @@
 # TestPilot AI
 
-AI-powered functional testing tool for **web**, **mobile**, and **desktop** apps.
+AI-powered functional testing tool for **web* apps.
 No coding required — describe tests in plain English, record interactions, or let the tool suggest what to test.
 
 ---
