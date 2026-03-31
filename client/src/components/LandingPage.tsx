@@ -273,12 +273,12 @@ export default function LandingPage({ isAuthenticated, isSessionLoading, onGetSt
       <main style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', position: 'relative', zIndex: 1 }}>
 
         {/* HERO SECTION */}
-        <section style={{ padding: '120px 0 80px', display: 'flex', alignItems: 'center', gap: 60, minHeight: '80vh', opacity: isVisible ? 1 : 0, transform: isVisible ? 'translateY(0)' : 'translateY(20px)', transition: 'all 0.8s ease-out' }}>
+        <section className="mobile-col mobile-py-4" style={{ padding: '120px 0 80px', display: 'flex', alignItems: 'center', gap: 60, minHeight: '80vh', opacity: isVisible ? 1 : 0, transform: isVisible ? 'translateY(0)' : 'translateY(20px)', transition: 'all 0.8s ease-out' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="hero-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1px solid ${theme.border}`, padding: '6px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, color: theme.accent, marginBottom: 24, background: theme.surfaceGlow, backdropFilter: 'blur(10px)', cursor: 'pointer' }}>
               <span className="hero-pill-sparkle">✨</span> Introducing TestPilot AI 2.0
             </div>
-            <h1 style={{ fontSize: 'clamp(48px, 5vw, 64px)', fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.02em', margin: '0 0 24px 0', minHeight: '3.3em' }}>
+            <h1 style={{ fontSize: 'clamp(42px, 8vw, 64px)', fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.02em', margin: '0 0 24px 0', minHeight: '3.3em' }}>
               Automate QA. <br />
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <span style={{ color: theme.textMuted }}>Audit&nbsp;</span>
@@ -292,7 +292,7 @@ export default function LandingPage({ isAuthenticated, isSessionLoading, onGetSt
             <p style={{ fontSize: 18, color: theme.textMuted, lineHeight: 1.6, maxWidth: 480, marginBottom: 40 }}>
               The developer-first AI QA platform. Record flows, instantly generate test coverage, and deeply audit your site's SEO, Accessibility, and Performance—all in one place.
             </p>
-            <div style={{ display: 'flex', gap: 16 }}>
+            <div className="mobile-col" style={{ display: 'flex', gap: 16 }}>
               <button onClick={isAuthenticated ? onGoToApp : onGetStarted} disabled={isSessionLoading} style={{ background: theme.accent, color: '#000', border: 'none', padding: '16px 32px', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: isSessionLoading ? 'wait' : 'pointer', transition: 'all 0.2s', boxShadow: '0 0 20px rgba(200,240,105,0.3)', opacity: isSessionLoading ? 0.7 : 1 }}
                 onMouseEnter={e => { if (!isSessionLoading) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 0 30px rgba(200,240,105,0.5)'; } }}
                 onMouseLeave={e => { if (!isSessionLoading) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 0 20px rgba(200,240,105,0.3)'; } }}>
@@ -473,7 +473,7 @@ export default function LandingPage({ isAuthenticated, isSessionLoading, onGetSt
             <p style={{ color: theme.textMuted, fontSize: 18, maxWidth: 600, margin: '0 auto', lineHeight: 1.6 }}>Everything you need to ensure your application is fast, accessible, and reliable.</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 32, position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 32, position: 'relative', zIndex: 1 }}>
             {/* CARD 1: RECORD & REPLAY */}
             <div className="feature-card" style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 24, padding: 40, display: 'flex', flexDirection: 'column', gap: 32 }}>
               <div className="shine-element" style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: '50%', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent)', pointerEvents: 'none' }} />
@@ -588,11 +588,11 @@ export default function LandingPage({ isAuthenticated, isSessionLoading, onGetSt
           <div style={{ textAlign: 'center', marginBottom: 60 }}>
             <h2 style={{ fontSize: 36, fontWeight: 700, margin: '0 0 16px 0' }}>How it works</h2>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
+          <div className="mobile-col" style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', gap: 40 }}>
             {/* Base line */}
-            <div style={{ position: 'absolute', top: 24, left: '16.6%', right: '16.6%', height: 2, background: theme.border, zIndex: 0 }} />
+            <div className="mobile-hide" style={{ position: 'absolute', top: 24, left: '16.6%', right: '16.6%', height: 2, background: theme.border, zIndex: 0 }} />
             {/* Progress line */}
-            <div style={{ position: 'absolute', top: 24, left: '16.6%', width: `${activeStep * 33.33}%`, height: 2, background: theme.accent, zIndex: 0, transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '0 0 10px rgba(200,240,105,0.5)' }} />
+            <div className="mobile-hide" style={{ position: 'absolute', top: 24, left: '16.6%', width: `${activeStep * 33.33}%`, height: 2, background: theme.accent, zIndex: 0, transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '0 0 10px rgba(200,240,105,0.5)' }} />
 
             {[
               { step: '1', title: 'Connect App', desc: 'Enter your target URL or localhost port.' },
@@ -626,7 +626,7 @@ export default function LandingPage({ isAuthenticated, isSessionLoading, onGetSt
           </div>
 
           {/* Interactive Visuals Container */}
-          <div style={{ marginTop: 60, height: 320, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 24, padding: 32, position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="mobile-h-auto" style={{ marginTop: 60, height: 320, minHeight: 320, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 24, padding: 32, position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
 
             {/* STEP 0: Connect App */}
             <div style={{ position: 'absolute', opacity: activeStep === 0 ? 1 : 0, transform: activeStep === 0 ? 'translateY(0)' : 'translateY(20px)', transition: 'all 0.6s', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 600 }}>
@@ -644,16 +644,16 @@ export default function LandingPage({ isAuthenticated, isSessionLoading, onGetSt
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', top: 0, left: 0, zIndex: 10, filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))', animation: activeStep === 0 ? 'cursorSequence 4.5s infinite' : 'none', opacity: 0 }}>
                 <path d="M19.5 12h-1.5v-3.5C18 7.12 16.88 6 15.5 6s-2.5 1.12-2.5 2.5V9h-1V5.5C12 4.12 10.88 3 9.5 3s-2.5 1.12-2.5 2.5v7.26l-1.78-.36a2.022 2.022 0 0 0-2.31.84L2.5 14.28 6.92 20C8.28 21.03 9.5 22 11.11 22h4.89c2.31 0 4.25-1.68 4.47-3.97l.5-5.51C21.11 11.14 20.07 10 18.69 10h-.19z" fill="white" stroke="black" strokeWidth="1" strokeLinejoin="round" />
               </svg>
-              <div style={{ marginTop: 40, display: 'flex', gap: 24 }}>
+              <div style={{ marginTop: 40, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 24 }}>
                 <div style={{ width: 140, height: 90, background: 'rgba(200,240,105,0.03)', borderRadius: 16, border: `1px solid ${theme.border}` }} />
-                <div style={{ width: 140, height: 90, background: 'rgba(200,240,105,0.03)', borderRadius: 16, border: `1px solid ${theme.border}` }} />
-                <div style={{ width: 140, height: 90, background: 'rgba(200,240,105,0.03)', borderRadius: 16, border: `1px solid ${theme.border}` }} />
+                <div className="mobile-hide" style={{ width: 140, height: 90, background: 'rgba(200,240,105,0.03)', borderRadius: 16, border: `1px solid ${theme.border}` }} />
+                <div className="mobile-hide" style={{ width: 140, height: 90, background: 'rgba(200,240,105,0.03)', borderRadius: 16, border: `1px solid ${theme.border}` }} />
               </div>
             </div>
 
             {/* STEP 1: Engage Engine */}
-            <div style={{ position: 'absolute', opacity: activeStep === 1 ? 1 : 0, transform: activeStep === 1 ? 'translateY(0)' : 'translateY(20px)', transition: 'all 0.6s', width: '100%', maxWidth: 700, pointerEvents: 'none' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="mobile-col" style={{ position: 'absolute', opacity: activeStep === 1 ? 1 : 0, transform: activeStep === 1 ? 'translateY(0)' : 'translateY(20px)', transition: 'all 0.6s', width: '100%', maxWidth: 700, pointerEvents: 'none' }}>
+              <div className="mobile-grid-1" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {[
                   { name: 'Auth Flow', stats: '24 nodes checked', score: 100, delay: '0s' },
                   { name: 'Checkout Flow', stats: '8 interactables found', score: 98, delay: '0.4s' },
@@ -714,7 +714,7 @@ export default function LandingPage({ isAuthenticated, isSessionLoading, onGetSt
             <div style={{ position: 'absolute', top: -32, left: -32, width: 'calc(100% + 64px)', height: 'calc(100% + 64px)', opacity: activeStep === 2 ? 1 : 0, transition: 'all 0.6s', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', background: 'rgba(11, 15, 12, 0.3)', backdropFilter: 'blur(12px)', zIndex: 10 }}>
 
               {/* Inner Card (Centered with margins) */}
-              <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 40, alignItems: 'center', width: '90%', maxWidth: 660, height: 260, padding: '24px 32px', position: 'relative', background: 'rgba(0, 0, 0, 0)', border: `none` }}>
+              <div className="mobile-col mobile-p-4 mobile-h-auto" style={{ display: 'flex', flexWrap: 'nowrap', gap: 40, alignItems: 'center', width: '90%', maxWidth: 660, height: 260, padding: '24px 32px', position: 'relative', background: 'rgba(0, 0, 0, 0)', border: `none` }}>
 
                 {/* Background Glass Sparkle */}
                 <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', background: 'linear-gradient(rgba(200, 240, 105, 0.05), transparent 80%)', borderRadius: 28 }} />

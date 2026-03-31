@@ -10,7 +10,7 @@ interface DocsSection {
 
 export default function DocsPage({ theme }: { theme: 'dark' | 'light' }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeSection, setActiveSection] = useState('getting-started');
+  const [activeSection, setActiveSection] = useState(() => localStorage.getItem('docs_activeSection') || 'getting-started');
 
   const sections = useMemo<DocsSection[]>(() => [
     {
@@ -52,7 +52,7 @@ export default function DocsPage({ theme }: { theme: 'dark' | 'light' }) {
           <p>The <strong>Recorder</strong> is the heartbeat of TestPilot AI. It allows you to create complex end-to-end tests without writing a single line of code. Every click, keystroke, and navigation is captured in real-time.</p>
           
           <h4 style={{ color: 'var(--text2)', marginTop: 24 }}>How to Record</h4>
-          <ul style={{ color: 'var(--text3)', lineHeight: 1.8 }}>
+          <ul style={{ color: 'var(--text3)', lineHeight: 1.8 ,paddingLeft:30}}>
             <li>Navigate to the <strong>Recorder</strong> tab.</li>
             <li>Enter the starting URL and click <strong>Start Recording</strong>.</li>
             <li>Perform actions on your site. TestPilot AI will build a step-by-step flow as you go.</li>
@@ -482,10 +482,10 @@ export default function DocsPage({ theme }: { theme: 'dark' | 'light' }) {
           <h4 style={{ color: 'var(--text2)', marginTop: 24 }}>Assertions & Validations</h4>
           <p>A test without assertions is just a walkthrough. We support multiple assertion types:</p>
           <pre style={{ background: '#1a1a1a', padding: 16, borderRadius: 12, border: '1px solid var(--border)', color: 'var(--accent)', fontSize: 12, overflow: 'auto' }}>
-{`// Example Assertions
-await expect(page.locator('.success-msg')).toBeVisible();
-await expect(page).toHaveURL(/.*dashboard/);
-await expect(page.locator('h1')).toContainText('Welcome');`}
+            {`// Example Assertions
+            await expect(page.locator('.success-msg')).toBeVisible();
+            await expect(page).toHaveURL(/.*dashboard/);
+            await expect(page.locator('h1')).toContainText('Welcome');`}
           </pre>
 
           <h4 style={{ color: 'var(--text2)', marginTop: 24 }}>Validation & Lints</h4>
@@ -534,7 +534,7 @@ await expect(page.locator('h1')).toContainText('Welcome');`}
       content: (
         <>
           <p>What makes TestPilot AI unique is our layer of "Smart Intelligence" that prevents brittle tests.</p>
-          <ul style={{ color: 'var(--text3)', lineHeight: 1.8 }}>
+          <ul style={{ color: 'var(--text3)', lineHeight: 1.8, paddingLeft:30 }}>
             <li><strong>Auto-Healing:</strong> Automatically rotates selectors when the primary one fails.</li>
             <li><strong>Smart Waits:</strong> Intelligently waits for elements to be stable, visible, and enabled before interacting.</li>
             <li><strong>Multi-Strategy:</strong> Uses AI to evaluate multiple ways to reach the same goal.</li>
@@ -550,7 +550,7 @@ await expect(page.locator('h1')).toContainText('Welcome');`}
       content: (
         <>
           <p>To build a robust test suite, follow these developer-recommended guidelines:</p>
-          <ul style={{ color: 'var(--text3)', lineHeight: 1.8 }}>
+          <ul style={{ color: 'var(--text3)', lineHeight: 1.8 ,paddingLeft:30}}>
             <li><strong>Use Stable Selectors:</strong> Prefer IDs or Data-Test-IDs over brittle CSS classes.</li>
             <li><strong>Atomic Tests:</strong> Keep tests focused on a single feature to pinpoint failures quickly.</li>
             <li><strong>Avoid Dynamic States:</strong> Use fixed timeouts or smart waits instead of hard-coded sleeps.</li>
@@ -628,6 +628,7 @@ await expect(page.locator('h1')).toContainText('Welcome');`}
       );
       if (first) {
         setActiveSection(first.id);
+        localStorage.setItem('docs_activeSection', first.id);
         const t = setTimeout(() => {
           const el = document.getElementById(first.id);
           if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -635,10 +636,11 @@ await expect(page.locator('h1')).toContainText('Welcome');`}
         return () => clearTimeout(t);
       }
     } else {
-      // Query cleared — reset highlight and scroll to top
-      setActiveSection('getting-started');
+      // Query cleared — reset highlight and scroll to saved section
+      const target = localStorage.getItem('docs_activeSection') || 'getting-started';
+      setActiveSection(target);
       const t = setTimeout(() => {
-        const el = document.getElementById('getting-started');
+        const el = document.getElementById(target);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 50);
       return () => clearTimeout(t);
@@ -652,11 +654,12 @@ await expect(page.locator('h1')).toContainText('Welcome');`}
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
       setActiveSection(id);
+      localStorage.setItem('docs_activeSection', id);
     }
   };
 
   return (
-    <div style={{ 
+    <div className="mobile-col" style={{ 
       display: 'flex', 
       gap: 24,
       alignItems: 'flex-start',
@@ -665,8 +668,28 @@ await expect(page.locator('h1')).toContainText('Welcome');`}
       fontFamily: 'var(--font-sans)',
       position: 'relative'
     }}>
-      {/* Sidebar */}
-      <aside className="custom-scrollbar" style={{
+      {/* Mobile Table of Contents Dropdown */}
+      <div className="mobile-only" style={{ width: '100%', marginBottom: 16, zIndex: 100 }}>
+        <select 
+          value={activeSection}
+          onChange={(e) => scrollTo(e.target.value)}
+          style={{ 
+            width: '100%', padding: '14px 16px', background: 'var(--surface2)', 
+            border: '1px solid var(--accent)', color: 'var(--text)', 
+            borderRadius: 12, fontSize: 16, outline: 'none', appearance: 'none',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)', fontWeight: 600
+          }}
+        >
+          {sections.map((s) => (
+            <option key={s.id} value={s.id}>{s.icon} {s.title}</option>
+          ))}
+        </select>
+        <div style={{ position: 'absolute', right: 16, top: 20, pointerEvents: 'none' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--textMuted)" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
+        </div>
+      </div>
+      {/* Sidebar Desktop */}
+      <aside className="custom-scrollbar desktop-only" style={{
         width: 300,
         background: 'rgba(255,255,255,0.02)',
         border: '1px solid rgba(255,255,255,0.05)',
@@ -712,8 +735,8 @@ await expect(page.locator('h1')).toContainText('Welcome');`}
                 background: 'rgba(255,255,255,0.08)',
                 border: 'none',
                 borderRadius: '50%',
-                width: 18,
-                height: 18,
+                width: 20,
+                height: 20,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -721,12 +744,12 @@ await expect(page.locator('h1')).toContainText('Welcome');`}
                 color: 'rgba(255,255,255,0.5)',
                 fontSize: 11,
                 lineHeight: 1,
-                padding: 0,
+                paddingTop: 2,
                 transition: 'background 0.15s, color 0.15s'
               }}
               onMouseEnter={e => {
-                (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.18)';
-                (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+                (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255, 135, 135, 0.19)';
+                (e.currentTarget as HTMLButtonElement).style.color = 'var(--fail)';
               }}
               onMouseLeave={e => {
                 (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.08)';
@@ -777,10 +800,11 @@ await expect(page.locator('h1')).toContainText('Welcome');`}
       </aside>
 
       {/* Main Content */}
-      <main style={{ 
+      <main style={{
         flex: 1, 
-        paddingLeft: 24,
-        paddingBottom: 80
+        marginLeft:20,
+        width: '100%',
+        minWidth: 0
       }}>
         {filteredSections.map((section, idx) => (
           <section 
@@ -795,7 +819,7 @@ await expect(page.locator('h1')).toContainText('Welcome');`}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
               <span style={{ fontSize: 24 }}>{section.icon}</span>
-              <h2 style={{ fontSize: 32, fontWeight: 700, margin: 0 }}>{section.title}</h2>
+              <h2 style={{ fontSize: 'clamp(24px, 6vw, 32px)', fontWeight: 700, margin: 0 }}>{section.title}</h2>
             </div>
             <div style={{ color: 'var(--text2)', fontSize: 15, lineHeight: 1.7 }}>
               {section.content}

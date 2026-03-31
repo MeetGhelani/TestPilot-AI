@@ -246,7 +246,7 @@ export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth, i
             {isSessionLoading ? (
               <div style={{ width: 80, height: 36, borderRadius: 100, background: 'rgba(255,255,255,0.03)', border: `1px solid ${theme.border}` }} />
             ) : isMarketing && !isAuthenticated ? (
-              <>
+              <div className="desktop-only" style={{ alignItems: 'center', gap: 12 }}>
                 <button
                   className="login-btn-ghost"
                   onClick={() => onOpenAuth('login')}
@@ -267,7 +267,7 @@ export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth, i
                 >
                   Start Testing &rarr;
                 </button>
-              </>
+              </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} className="profile-container">
                 {isAuthenticated ? (
@@ -281,13 +281,13 @@ export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth, i
 
                     {isMarketing && (
                       <button
-                        onClick={() => switchTab('audit')}
+                        onClick={() => switchTab('record')}
                         style={{
                           background: 'var(--surface2)', color: theme.accent, border: `1px solid ${theme.accent}40`, padding: '8px 20px', borderRadius: 100,
                           fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s'
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(200,240,105,0.1)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface2)'; }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(200,240,105,0.1)';  }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface2)';}}
                       >
                         Dashboard
                       </button>
@@ -304,8 +304,8 @@ export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth, i
                           transition: 'all 0.2s',
                           color: isProfileOpen ? '#000' : theme.textMuted
                         }}
-                        onMouseEnter={e => { if (!isProfileOpen) { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = theme.text; } }}
-                        onMouseLeave={e => { if (!isProfileOpen) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = theme.textMuted; } }}
+                        onMouseEnter={e => { if (!isProfileOpen) { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = theme.accent; e.currentTarget.style.borderColor = theme.accent } }}
+                        onMouseLeave={e => { if (!isProfileOpen) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = theme.textMuted; e.currentTarget.style.borderColor = theme.border; } }}
                       >
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                       </div>
@@ -370,81 +370,110 @@ export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth, i
                 display: 'flex', background: 'transparent', border: 'none', color: theme.text, cursor: 'pointer', padding: 8
               }}
             >
-              {isMobileMenuOpen ? (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
-              ) : (
+              {isMobileMenuOpen ? null : (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12h18M3 6h18M3 18h18" /></svg>
               )}
             </button>
           </div>
         </div>
 
-        {/* MOBILE MENU */}
-        {isMobileMenuOpen && (
-          <div style={{
-            position: 'absolute', top: '100%', left: 0, right: 0, background: theme.bg,
-            borderBottom: `1px solid ${theme.border}`, padding: '24px', display: 'flex', flexDirection: 'column', gap: 20,
-            animation: 'slideDown 0.3s ease-out'
-          }}>
-            {isMarketing ? (
-              <>
-                {['Home', 'Pricing', 'Docs'].map(item => (
-                  <a key={item} href="#"
-                    onClick={e => { e.preventDefault(); if (item === 'Home') switchTab('home'); if (item === 'Pricing') switchTab('pricing'); if (item === 'Docs') switchTab('docs'); setIsMobileMenuOpen(false); }}
-                    style={{ color: theme.text, fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>{item}</a>
-                ))}
-                <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: 20 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: theme.textMuted, marginBottom: 16, textTransform: 'uppercase' }}>Solutions</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    {productLinks.map(link => (
-                      <div key={link.id} onClick={() => { switchTab(link.id); setIsMobileMenuOpen(false); }} style={{ color: theme.text, fontSize: 14, fontWeight: 500 }}>{link.name}</div>
+      </header>
+
+      {/* MOBILE DRAWER (Right Side) */}
+      {isMobileMenuOpen && (
+          <>
+            <div 
+              onClick={() => setIsMobileMenuOpen(false)}
+              style={{
+                position: 'fixed', inset: 0, zIndex: 1999, background: 'rgba(0,0,0,0.6)',
+                backdropFilter: 'blur(4px)', animation: 'fadeIn 0.3s ease-out'
+              }}
+            />
+            <div style={{
+              position: 'fixed', top: 0, right: 0, bottom: 0, width: '85%', maxWidth: 340,
+              background: theme.surface, borderLeft: `1px solid ${theme.border}`, padding: '24px 20px', 
+              display: 'flex', flexDirection: 'column', gap: 24, zIndex: 2000, overflowY: 'auto',
+              animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              boxShadow: '-20px 0 60px rgba(0,0,0,0.7)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 18, color: theme.text }}>Menu</div>
+                <button 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '50%', color: theme.textMuted, cursor: 'pointer', padding: 8 }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              {isMarketing ? (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {['Home', 'Pricing', 'Docs'].map(item => (
+                      <a key={item} href="#"
+                        onClick={e => { e.preventDefault(); if (item === 'Home') switchTab('home'); if (item === 'Pricing') switchTab('pricing'); if (item === 'Docs') switchTab('docs'); setIsMobileMenuOpen(false); }}
+                        style={{ color: theme.text, fontSize: 18, fontWeight: 600, textDecoration: 'none', padding: '8px 0' }}>{item}</a>
                     ))}
                   </div>
-                </div>
-              </>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {/* Home link at the top */}
-                <button
-                  onClick={() => { switchTab('home'); setIsMobileMenuOpen(false); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '12px', borderRadius: 12,
-                    background: 'rgba(255,255,255,0.03)', border: `1px solid ${theme.border}`,
-                    color: theme.textMuted, fontSize: 16, fontWeight: 600, textAlign: 'left', cursor: 'pointer'
-                  }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-                  Home
-                </button>
-                <div style={{ height: 1, background: theme.border }} />
-                {productLinks.map(link => (
+                  <div style={{ height: 1, background: theme.border }} />
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted, marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }}>Solutions</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                      {productLinks.map(link => (
+                        <div key={link.id} onClick={() => { switchTab(link.id); setIsMobileMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 12, color: theme.text, fontSize: 15, fontWeight: 500, cursor: 'pointer' }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(200,240,105,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.accent }}>
+                            {link.icon}
+                          </div>
+                          {link.name}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {!isAuthenticated && (
+                    <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 24 }}>
+                      <button onClick={() => { onOpenAuth('login'); setIsMobileMenuOpen(false); }} className="login-btn-ghost" style={{ width: '100%', padding: '12px' }}>Login</button>
+                      <button onClick={() => { onOpenAuth('signup'); setIsMobileMenuOpen(false); }} style={{ width: '100%', padding: '12px', background: theme.accent, color: '#000', border: 'none', borderRadius: 100, fontSize: 16, fontWeight: 700, cursor: 'pointer' }}>Get Started</button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <button
-                    key={link.id}
-                    onClick={() => {
-                      if (!isAuthenticated) {
-                        onOpenAuth('login');
-                        setIsMobileMenuOpen(false);
-                      } else {
-                        switchTab(link.id);
-                        setIsMobileMenuOpen(false);
-                      }
-                    }}
+                    onClick={() => { switchTab('home'); setIsMobileMenuOpen(false); }}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 12, padding: '12px', borderRadius: 12,
-                      background: activeTab === link.id ? 'rgba(200,240,105,0.1)' : 'rgba(255,255,255,0.03)',
-                      border: 'none', color: activeTab === link.id ? theme.accent : theme.text,
-                      fontSize: 16, fontWeight: 600, textAlign: 'left', cursor: 'pointer'
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '14px', borderRadius: 12,
+                      background: 'rgba(255,255,255,0.03)', border: `1px solid ${theme.border}`,
+                      color: theme.textMuted, fontSize: 16, fontWeight: 600, textAlign: 'left', cursor: 'pointer'
                     }}
                   >
-                    {link.icon} {link.name}
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                    Home
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
+                  <div style={{ height: 1, background: theme.border, margin: '8px 0' }} />
+                  {productLinks.map(link => (
+                    <button
+                      key={link.id}
+                      onClick={() => {
+                        if (!isAuthenticated) { onOpenAuth('login'); setIsMobileMenuOpen(false); } 
+                        else { switchTab(link.id); setIsMobileMenuOpen(false); }
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12, padding: '14px', borderRadius: 12,
+                        background: activeTab === link.id ? 'rgba(200,240,105,0.1)' : 'transparent',
+                        border: 'none', color: activeTab === link.id ? theme.accent : theme.text,
+                        fontSize: 16, fontWeight: 600, textAlign: 'left', cursor: 'pointer'
+                      }}
+                    >
+                      {link.icon} {link.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
         )}
 
-      </header>
 
       {showLogoutConfirm && (
         <div
@@ -520,6 +549,10 @@ export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth, i
         @keyframes slideInSimple {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideInRight {
+          from { opacity: 0; transform: translateX(100%); }
+          to { opacity: 1; transform: translateX(0); }
         }
         @keyframes slideDown {
           from { opacity: 0; transform: translateY(-10px); }

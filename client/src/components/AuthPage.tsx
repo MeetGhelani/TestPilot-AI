@@ -209,7 +209,7 @@ export default function AuthPage({ onLogin, onClose, initialMode = 'login' }: Au
 
       {/* RIGHT SIDE: AUTH FORM */}
       {/* RIGHT SIDE: AUTH FORM */}
-      <div className="auth-form-pane" style={{ flex: '1', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '40px', position: 'relative', overflow: 'hidden' }}>
+      <div className="auth-form-pane mobile-p-4" style={{ flex: '1', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '40px', position: 'relative', overflow: 'hidden' }}>
         
         {/* Subtle background glow */}
         {/*<div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 600, height: 600, background: `radial-gradient(circle, ${theme.accentGlow} 0%, transparent 70%)`, opacity: 0.4, pointerEvents: 'none', zIndex: 0 }} />*/}

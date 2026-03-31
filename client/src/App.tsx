@@ -299,26 +299,26 @@ export default function App() {
                 />
               </div>
             ) : activeTab === 'record' ? (
-              <div style={{ flex: 1, padding: '40px 0' }}>
-                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }}>
+              <div style={{ flex: 1, padding: '40px 0' }} className="mobile-py-4">
+                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
                   <RecordReplay onBusyChange={setGlobalBusy} switchTab={switchTab} setHighlightId={setHighlightId} />
                 </div>
               </div>
             ) : activeTab === 'suggest' ? (
-              <div style={{ flex: 1, padding: '40px 0' }}>
-                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }}>
+              <div style={{ flex: 1, padding: '40px 0' }} className="mobile-py-4">
+                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
                   <SmartSuggester onBusyChange={setGlobalBusy} switchTab={switchTab} setHighlightId={setHighlightId} />
                 </div>
               </div>
             ) : activeTab === 'audit' ? (
-              <div style={{ flex: 1, padding: '40px 0' }}>
-                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }}>
+              <div style={{ flex: 1, padding: '40px 0' }} className="mobile-py-4">
+                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
                   <AuditPanel onBusyChange={setGlobalBusy} theme={theme} />
                 </div>
               </div>
             ) : activeTab === 'history' ? (
-              <div style={{ flex: 1, padding: '40px 0' }}>
-                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }}>
+              <div style={{ flex: 1, padding: '40px 0' }} className="mobile-py-4">
+                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
                   <HistoryPanel 
                     history={history} 
                     onClear={handleClearHistory} 
@@ -330,8 +330,8 @@ export default function App() {
                 </div>
               </div>
             ) : activeTab === 'docs' ? (
-              <div style={{ flex: 1, padding: '40px 0', background: '#0B0F0C' }}>
-                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }}>
+              <div style={{ flex: 1, padding: '40px 0', background: '#0B0F0C' }} className="mobile-py-4">
+                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
                   <DocsPage theme={theme} />
                 </div>
               </div>
@@ -356,7 +356,7 @@ export default function App() {
             {activeTab !== 'home' && showScrollTop && (
               <button
                 onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                className="scroll-top-btn"
+                className="scroll-top-btn mobile-scroll-top"
                 style={{
                   position: 'fixed',
                   bottom: 90,

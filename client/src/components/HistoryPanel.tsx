@@ -40,10 +40,10 @@ export default function HistoryPanel({ history, onClear, onDeleteItem, onDeleteI
   const isAudit = (item: HistoryItem): item is AuditResult => 'type' in item && item.type === 'audit'
 
   return (
-    <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+    <div className="mobile-col" style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 
       {/* ── Left: history list ── */}
-      <div style={{ width: 350, flexShrink: 0, position: 'sticky', top: 112, alignSelf: 'flex-start' }}>
+      <div className="mobile-w-full mobile-relative" style={{ width: '100%', maxWidth: 350, flexShrink: 0, position: 'sticky', top: 112, alignSelf: 'flex-start' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 28, fontWeight: 600 }}>History</h2>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -194,7 +194,7 @@ export default function HistoryPanel({ history, onClear, onDeleteItem, onDeleteI
                 </div>
              </div>
 
-             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
                 {Object.entries(selected.categories).map(([name, cat]) => (
                   <div key={name} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8 }}>

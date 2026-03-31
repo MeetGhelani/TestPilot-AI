@@ -6,6 +6,11 @@
   padding: 0;
 }
 
+html, body {
+  overflow-x: clip; 
+  width: 100%;
+}
+
 :root {
   /* Dark Theme (Default) */
   --bg: #0B0F0C;
@@ -134,4 +139,79 @@ body {
   border-color: rgba(200, 240, 105, 0.4) !important;
   transform: translateY(-4px) scale(1.1) !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(200, 240, 105, 0.1) !important;
+}
+
+/* ========================================================================= */
+/* RESPONSIVE UTILITIES (Mobile-First approach built over Desktop Default) */
+/* Desktop is the default state (> 768px). Media queries override for <= 768px */
+/* ========================================================================= */
+
+.mobile-only {
+  display: none !important;
+}
+
+.desktop-only {
+  display: flex !important;
+}
+
+@media (max-width: 768px) {
+  .mobile-only {
+    display: flex !important;
+  }
+  
+  .desktop-only {
+    display: none !important;
+  }
+  
+  .mobile-hide {
+    display: none !important;
+  }
+  
+  .mobile-relative {
+    position: relative !important;
+    top: auto !important;
+  }
+  
+  .mobile-sidebar-history {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding-right: 0 !important;
+    padding-bottom: 24px !important;
+  }
+
+  /* Structural Overrides */
+  .mobile-col {
+    flex-direction: column !important;
+  }
+  
+  .mobile-col-reverse {
+    flex-direction: column-reverse !important;
+  }
+
+  .mobile-grid-1 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Padding & Spacing */
+  .mobile-p-4 { padding: 16px !important; }
+  .mobile-px-4 { padding-left: 16px !important; padding-right: 16px !important; }
+  .mobile-py-4 { padding-top: 16px !important; padding-bottom: 16px !important; }
+
+  /* Width overrides */
+  .mobile-w-full { width: 100% !important; }
+  .mobile-h-auto { height: auto !important; }
+
+  .mobile-scroll-top {
+    bottom: 24px !important;
+    right: 24px !important;
+    width: 44px !important;
+    height: 44px !important;
+  }
+}
+
+/* Horizontal Scroll Wrapper for Tables */
+.responsive-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }

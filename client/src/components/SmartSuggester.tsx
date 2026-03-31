@@ -246,7 +246,7 @@ export default function SmartSuggester({ onBusyChange, switchTab, setHighlightId
   const filtered = activeResult?.suggestions.filter(s => activeCategory === 'all' || s.category === activeCategory) ?? []
 
   return (
-    <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', position: 'relative' }}>
+    <div className="mobile-col" style={{ display: 'flex', gap: 24, alignItems: 'flex-start', position: 'relative' }}>
 
       {/* Running/Scanning overlays — dims whole panel while busy */}
       {(running || scanning) && (
@@ -266,9 +266,9 @@ export default function SmartSuggester({ onBusyChange, switchTab, setHighlightId
       )}
 
       {/* ── Left panel ── */}
-      <div style={{ width: 350, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 112, alignSelf: 'flex-start' }}>
+      <div className="mobile-w-full mobile-relative" style={{ width: '100%', maxWidth: 350, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 112, alignSelf: 'flex-start' }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 600,   lineHeight: 1.2 }}>Smart test<br /><em style={{ color: 'var(--accent)', fontFamily: 'var(--font-serif)', fontWeight: 500 }}>suggester</em></h1>
+          <h1 style={{ fontSize: 'clamp(24px, 6vw, 28px)', fontWeight: 600,   lineHeight: 1.2 }}>Smart test<br /><em style={{ color: 'var(--accent)', fontFamily: 'var(--font-serif)', fontWeight: 500 }}>suggester</em></h1>
           <p style={{ color: 'var(--text2)', fontSize: 12, marginTop: 6 }}>Scans your site — tells you exactly what to test.</p>
         </div>
 
@@ -430,7 +430,7 @@ export default function SmartSuggester({ onBusyChange, switchTab, setHighlightId
         {activeResult && !scanning && (
           <>
             {/* Summary bar */}
-            <div style={{ padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
                 {activeResult.siteName && <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 2 }}>{activeResult.siteName}</div>}
                 <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 3 }}>{activeResult.url.replace(/^https?:\/\//, '')}</div>
@@ -465,11 +465,11 @@ export default function SmartSuggester({ onBusyChange, switchTab, setHighlightId
               {filtered.map(sug => {
                 const isEditing = editingSugId === sug.id
                 return (
-                  <div key={sug.id} id={`sug-${sug.id}`} style={{ background: 'var(--surface)', border: `1px solid ${isEditing ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.2s' }}>
-                    <div style={{ padding: '14px 16px', display: 'flex', gap: 12 }}>
+                  <div key={sug.id} id={`sug-${sug.id}`} style={{ background: 'var(--surface)', border: `1px solid ${isEditing ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.2s', minWidth: 0 }}>
+                    <div className="mobile-p-4" style={{ padding: '14px 16px', display: 'flex', gap: 12 }}>
                       <div style={{ fontSize: 20, flexShrink: 0, marginTop: 2 }}>{sug.icon}</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
                           <div>
                             <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 3 }}>{sug.title}</div>
                             <div style={{ fontSize: 12, color: 'var(--text2)' }}>{sug.description}</div>
@@ -572,7 +572,7 @@ export default function SmartSuggester({ onBusyChange, switchTab, setHighlightId
                     </div>
 
                     {/* Action bar */}
-                    <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end', background: 'var(--surface2)' }}>
+                    <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end', background: 'var(--surface2)', flexWrap: 'wrap' }}>
                       <button onClick={() => { setEditingSugId(sug.id); setEditedSteps([...(sug.steps || [])]) }} disabled={isEditing}
                         style={{ padding: '6px 14px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>
                         {isEditing ? 'EDITING...' : '✎ EDIT'}

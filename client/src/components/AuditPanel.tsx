@@ -612,7 +612,7 @@ export default function AuditPanel({ onBusyChange, theme }: AuditPanelProps) {
   )
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 20, minHeight: '80vh', position: 'relative' }}>
+    <div className="mobile-col" style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 20, minHeight: '80vh', position: 'relative' }}>
 
       {/* Confirmation Modal Overlay */}
       {confirmModal && (
@@ -679,7 +679,7 @@ export default function AuditPanel({ onBusyChange, theme }: AuditPanelProps) {
 
       {/* Sidebar History */}
       {showHistory && (
-        <div style={{ width: 350, flexShrink: 0, borderRight: '1px solid var(--border)', paddingRight: 20, display: 'flex', flexDirection: 'column', gap: 24, position: 'sticky', top: 112, alignSelf: 'flex-start' }}>
+        <div className="mobile-w-full mobile-relative mobile-sidebar-history" style={{ width: '100%', maxWidth: 350, flexShrink: 0, borderRight: '1px solid var(--border)', paddingRight: 20, display: 'flex', flexDirection: 'column', gap: 24, position: 'sticky', top: 112, alignSelf: 'flex-start' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
             <h3 style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text1)', textTransform: 'uppercase', letterSpacing: 1.5, margin: 0 }}>Recent Audits</h3>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -923,7 +923,7 @@ export default function AuditPanel({ onBusyChange, theme }: AuditPanelProps) {
           </div>
           <p style={{ color: 'var(--text2)', marginBottom: 32 }}>Professional multi-dimensional QA & SEO verification engine.</p>
 
-          <div style={{ display: 'flex', gap: 12, maxWidth: 660, margin: '0 auto' }}>
+          <div className="mobile-col" style={{ display: 'flex', gap: 12, maxWidth: 660, margin: '0 auto' }}>
             <input
               type="text"
               placeholder="https://example.com"
@@ -1159,7 +1159,7 @@ export default function AuditPanel({ onBusyChange, theme }: AuditPanelProps) {
 
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 40, animation: 'fadeIn 0.4s ease-out' }}>
-              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: '36px 44px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: '36px 44px', display: 'flex', flexWrap: 'wrap', gap: 24, justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
                 <div>
                   <div style={{ fontSize: 12, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12, fontWeight: 700 }}>
                     {result.comparisons && selectedComparisonId ? `Details: ${selectedComparisonId === 'lowEndMobile' ? 'Low-end Mobile' : selectedComparisonId.toUpperCase()}` : 'Overall Health Score'}
@@ -1221,7 +1221,7 @@ export default function AuditPanel({ onBusyChange, theme }: AuditPanelProps) {
                 <ComparisonView comparisons={result.comparisons} />
               ) : null}
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 24 }}>
                 <CategoryCard title="Functional Health" icon="⚙️" cat={displayResult.categories.functional} />
                 <CategoryCard title="UI & Visuals" icon="🎨" cat={displayResult.categories.ui} />
                 <CategoryCard title="Broken Links" icon="🔗" cat={displayResult.categories.links} />

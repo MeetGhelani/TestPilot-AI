@@ -163,7 +163,7 @@ export default function PricingPage({ onGetStarted, onUpgradePro }: PricingPageP
         </section>
 
         {/* ── PRICING CARDS ── */}
-        <section style={{ padding: '0 0 96px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, alignItems: 'start' }}>
+        <section style={{ padding: '0 0 96px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 24, alignItems: 'start' }}>
 
           {/* FREE */}
           <div className="pricing-card pricing-card-free" style={{ background: surface, border: `1px solid ${border}`, borderRadius: 24, padding: 36, position: 'relative', overflow: 'hidden' }}>
@@ -283,8 +283,10 @@ export default function PricingPage({ onGetStarted, onUpgradePro }: PricingPageP
           </div>
 
           <div style={{ background: surface, border: `1px solid ${border}`, borderRadius: 20, overflow: 'hidden' }}>
-            {/* Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', padding: '20px 28px', borderBottom: `1px solid ${border}`, background: 'rgba(163,230,53,0.02)' }}>
+            <div className="custom-scrollbar" style={{ overflowX: 'auto' }}>
+              <div style={{ minWidth: 600 }}>
+                {/* Header */}
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', padding: '20px 28px', borderBottom: `1px solid ${border}`, background: 'rgba(163,230,53,0.02)' }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: muted }}>Feature</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: muted, textAlign: 'center' }}>Free</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: accent, textAlign: 'center' }}>Pro</div>
@@ -307,6 +309,8 @@ export default function PricingPage({ onGetStarted, onUpgradePro }: PricingPageP
                 <div>{renderCell(row.team)}</div>
               </div>
             ))}
+            </div>
+            </div>
           </div>
         </section>
 
@@ -319,7 +323,7 @@ export default function PricingPage({ onGetStarted, onUpgradePro }: PricingPageP
             <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 40px)', fontWeight: 800, margin: '0 0 12px', letterSpacing: '-0.02em' }}>Built for developers who care about quality</h2>
             <p style={{ color: muted2, fontSize: 16, maxWidth: 520, margin: '0 auto' }}>TestPilot AI removes the friction between writing code and validating it.</p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: 20 }}>
             {values.map(v => (
               <div key={v.title} className="value-card" style={{ background: surface, border: `1px solid ${border}`, borderRadius: 20, padding: 28 }}>
                 <div style={{ fontSize: 36, marginBottom: 16 }}>{v.icon}</div>

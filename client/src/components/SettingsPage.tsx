@@ -79,7 +79,7 @@ export default function SettingsPage({ user, theme: currentTheme, onToggleTheme 
   ];
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '60px 40px', animation: 'fadeIn 0.4s ease-out' }}>
+    <div className="mobile-p-4" style={{ maxWidth: 1200, margin: '0 auto', padding: '60px 40px', animation: 'fadeIn 0.4s ease-out' }}>
       <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Settings</h1>
       <p style={{ color: theme.textMuted, marginBottom: 40 }}>Manage your account settings and preferences.</p>
 
@@ -100,9 +100,9 @@ export default function SettingsPage({ user, theme: currentTheme, onToggleTheme 
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 48 }}>
+      <div className="mobile-col" style={{ display: 'flex', gap: 48 }}>
         {/* Sidebar */}
-        <div style={{ width: 300, flexShrink: 0 }}>
+        <div className="mobile-w-full" style={{ width: 300, flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {tabs.map(tab => (
               <button
@@ -207,7 +207,7 @@ export default function SettingsPage({ user, theme: currentTheme, onToggleTheme 
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 24 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: theme.textMuted, letterSpacing: 1.5, marginBottom: 8 }}>JOINED ON</label>
                     <div style={{ fontSize: 15, fontWeight: 600 }}>{new Date(user?.created_at).toLocaleDateString()}</div>

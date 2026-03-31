@@ -198,12 +198,12 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
   const lbl: React.CSSProperties = { fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, display: 'block' }
 
   return (
-    <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+    <div className="mobile-col" style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 
       {/* ── Left: controls ── */}
-      <div style={{ width: 350, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 112, alignSelf: 'flex-start' }}>
+      <div className="mobile-w-full mobile-relative" style={{ width: '100%', maxWidth: 350, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 112, alignSelf: 'flex-start' }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.2 }}>
+          <h1 style={{ fontSize: 'clamp(24px, 6vw, 28px)', fontWeight: 600, lineHeight: 1.2 }}>
             Record &amp;<br /><em style={{ color: 'var(--accent)', fontFamily: 'var(--font-serif)', fontWeight: 500 }}>replay tests</em>
           </h1>
 
