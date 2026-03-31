@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import Footer from './Footer';
 
-export default function LandingPage({ onGetStarted, onGoToApp }: { onGetStarted: () => void, onGoToApp: () => void }) {
+export default function LandingPage({ onGetStarted, onGoToApp, onSwitchTab }: { onGetStarted: () => void, onGoToApp: () => void, onSwitchTab: (tab: string) => void }) {
   const { session, isLoading: isSessionLoading } = useAuth();
   const isAuthenticated = !!session;
   const [isVisible, setIsVisible] = useState(false);
@@ -464,7 +465,7 @@ export default function LandingPage({ onGetStarted, onGoToApp }: { onGetStarted:
         </section>
 
         {/* CORE FEATURES */}
-        <section style={{ padding: '150px 0', position: 'relative' }}>
+        <section id="features" style={{ padding: '150px 0', position: 'relative' }}>
           {/* Background Glow */}
           <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '80%', height: '80%', background: 'radial-gradient(circle, rgba(200, 240, 105, 0.03) 0%, transparent 70%)', zIndex: 0, pointerEvents: 'none' }} />
 
@@ -1022,51 +1023,8 @@ export default function LandingPage({ onGetStarted, onGoToApp }: { onGetStarted:
         </div>
       </section>
 
-      {/* MINI FOOTER */}
-      <footer style={{ borderTop: `1px solid ${theme.border}`, padding: '60px 24px 40px', background: theme.bg }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 40, marginBottom: 60 }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                <img src="/logo.png" alt="TestPilot AI Logo" style={{ height: 45, width: 'auto', display: 'block' }} />
-              </div>
-              <p style={{ color: theme.textMuted, fontSize: 14, maxWidth: 280, lineHeight: 1.6 }}>
-                The next-generation testing engine for modern web applications. Quality engineering at the speed of light.
-              </p>
-            </div>
-            
-            <div style={{ display: 'flex', gap: 80, flexWrap: 'wrap' }}>
-              <div>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: theme.text, marginBottom: 20, textTransform: 'uppercase', letterSpacing: 1 }}>Product</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {['Features', 'Pricing', 'Docs', 'Security'].map(item => (
-                    <a key={item} href="#" style={{ fontSize: 14, color: theme.textMuted, textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = theme.accent} onMouseLeave={e => e.currentTarget.style.color = theme.textMuted}>{item}</a>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: theme.text, marginBottom: 20, textTransform: 'uppercase', letterSpacing: 1 }}>Company</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {['About', 'Blog', 'Contact', 'Privacy'].map(item => (
-                    <a key={item} href="#" style={{ fontSize: 14, color: theme.textMuted, textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = theme.accent} onMouseLeave={e => e.currentTarget.style.color = theme.textMuted}>{item}</a>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ borderTop: `1px solid rgba(255,255,255,0.05)`, paddingTop: 40, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
-            <div style={{ fontSize: 13, color: theme.textMuted }}>
-              &copy; 2026 TestPilot AI by MeetGhelani. All rights reserved.
-            </div>
-            <div style={{ display: 'flex', gap: 24 }}>
-              {['Twitter', 'GitHub', 'LinkedIn'].map(social => (
-                <a key={social} href="#" style={{ fontSize: 13, color: theme.textMuted, textDecoration: 'none' }} onMouseEnter={e => e.currentTarget.style.color = theme.accent} onMouseLeave={e => e.currentTarget.style.color = theme.textMuted}>{social}</a>
-              ))}
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* FOOTER */}
+      <Footer onSwitchTab={onSwitchTab} />
 
       {/* SCROLL TO TOP */}
       <button 

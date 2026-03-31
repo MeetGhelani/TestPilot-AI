@@ -16,7 +16,8 @@ export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth }:
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const isMarketing = activeTab === 'home' || activeTab === 'docs' || activeTab === 'pricing' || !isAuthenticated;
+  const isMarketing = activeTab === 'home' || activeTab === 'docs' || activeTab === 'pricing' || 
+    activeTab === 'about' || activeTab === 'blog' || activeTab === 'contact' || activeTab === 'privacy' || !isAuthenticated;
 
   // Handle click outside to close profile dropdown
   useEffect(() => {

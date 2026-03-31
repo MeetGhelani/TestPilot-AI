@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import Footer from './Footer';
 
 interface DocsSection {
   id: string;
@@ -8,7 +9,7 @@ interface DocsSection {
   category: 'getting-started' | 'features' | 'advanced' | 'support';
 }
 
-export default function DocsPage({ theme }: { theme: 'dark' | 'light' }) {
+export default function DocsPage({ theme, onSwitchTab }: { theme: 'dark' | 'light', onSwitchTab: (tab: string) => void }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSection, setActiveSection] = useState(() => localStorage.getItem('docs_activeSection') || 'getting-started');
 
@@ -659,15 +660,19 @@ export default function DocsPage({ theme }: { theme: 'dark' | 'light' }) {
   };
 
   return (
-    <div className="mobile-col" style={{ 
-      display: 'flex', 
-      gap: 24,
-      alignItems: 'flex-start',
-      minHeight: 'calc(100vh - 152px)',
-      color: '#f8fafc',
-      fontFamily: 'var(--font-sans)',
-      position: 'relative'
-    }}>
+    <div style={{ background: '#0B0F0C' }}>
+      <div className="mobile-col" style={{ 
+        display: 'flex', 
+        gap: 24,
+        alignItems: 'flex-start',
+        minHeight: 'calc(100vh - 152px)',
+        color: '#f8fafc',
+        fontFamily: 'var(--font-sans)',
+        position: 'relative',
+        maxWidth: 1300, 
+        margin: '0 auto', 
+        padding: '40px'
+      }}>
       {/* Mobile Table of Contents Dropdown */}
       <div className="mobile-only" style={{ width: '100%', marginBottom: 16, zIndex: 100 }}>
         <select 
@@ -875,6 +880,8 @@ export default function DocsPage({ theme }: { theme: 'dark' | 'light' }) {
           scrollbar-color: rgba(163, 230, 53, 0.45) rgba(255,255,255,0.05);
         }
       `}</style>
+      </div>
+      <Footer onSwitchTab={onSwitchTab} />
     </div>
   );
 }

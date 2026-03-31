@@ -10,6 +10,10 @@ import AuthPage from './components/AuthPage'
 import SettingsPage from './components/SettingsPage'
 import DocsPage from './components/DocsPage'
 import PricingPage from './components/PricingPage'
+import AboutPage from './components/AboutPage'
+import BlogPage from './components/BlogPage'
+import ContactPage from './components/ContactPage'
+import PrivacyPage from './components/PrivacyPage'
 import ResetPassword from './components/ResetPassword'
 import { supabase } from '../../lib/supabase'
 import { AuthGuard } from './components/AuthGuard'
@@ -272,6 +276,7 @@ export default function App() {
                   <LandingPage 
                     onGetStarted={() => openAuth('signup')} 
                     onGoToApp={() => switchTab('audit')} 
+                    onSwitchTab={switchTab}
                   />
                 </div>
               } />
@@ -324,10 +329,8 @@ export default function App() {
               } />
 
               <Route path="/docs/*" element={
-                <div style={{ flex: 1, padding: '40px 0', background: '#0B0F0C' }} className="mobile-py-4">
-                  <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
-                    <DocsPage theme={theme} />
-                  </div>
+                <div style={{ flex: 1 }}>
+                  <DocsPage theme={theme} onSwitchTab={switchTab} />
                 </div>
               } />
 
@@ -336,7 +339,32 @@ export default function App() {
                   <PricingPage
                     onGetStarted={() => openAuth('signup')}
                     onUpgradePro={() => openAuth('signup')}
+                    onSwitchTab={switchTab}
                   />
+                </div>
+              } />
+
+              <Route path="/about" element={
+                <div style={{ flex: 1 }}>
+                  <AboutPage onSwitchTab={switchTab} />
+                </div>
+              } />
+
+              <Route path="/blog" element={
+                <div style={{ flex: 1 }}>
+                  <BlogPage onSwitchTab={switchTab} />
+                </div>
+              } />
+
+              <Route path="/contact" element={
+                <div style={{ flex: 1 }}>
+                  <ContactPage onSwitchTab={switchTab} />
+                </div>
+              } />
+
+              <Route path="/privacy" element={
+                <div style={{ flex: 1 }}>
+                  <PrivacyPage onSwitchTab={switchTab} />
                 </div>
               } />
 

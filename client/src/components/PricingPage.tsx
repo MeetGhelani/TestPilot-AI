@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import Footer from './Footer';
 
 interface PricingPageProps {
   onGetStarted: () => void;
   onUpgradePro: () => void;
+  onSwitchTab: (tab: string) => void;
 }
 
 const CHECK = (
@@ -45,7 +47,7 @@ const values = [
   { icon: '🛡️', title: 'Catch bugs before users do', desc: 'Shift quality left. Find regressions in CI/CD before they ever reach production.' },
 ];
 
-export default function PricingPage({ onGetStarted, onUpgradePro }: PricingPageProps) {
+export default function PricingPage({ onGetStarted, onUpgradePro, onSwitchTab }: PricingPageProps) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const accent = '#a3e635';
@@ -411,6 +413,7 @@ export default function PricingPage({ onGetStarted, onUpgradePro }: PricingPageP
         </section>
 
       </div>
+      <Footer onSwitchTab={onSwitchTab} />
     </div>
   );
 }
