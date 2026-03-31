@@ -1,22 +1,22 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 interface NavbarProps {
   activeTab: string;
   switchTab: (tab: any) => void;
   globalBusy: boolean;
   onOpenAuth: (mode?: 'login' | 'signup') => void;
-  isAuthenticated: boolean;
-  user: any;
-  isSessionLoading: boolean;
 }
 
-export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth, isAuthenticated, user, isSessionLoading }: NavbarProps) {
+export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth }: NavbarProps) {
+  const { user, session, isLoading: isSessionLoading, signOut } = useAuth();
+  const isAuthenticated = !!session;
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const isMarketing = activeTab === 'home' || activeTab === 'docs' || !isAuthenticated;
+  const isMarketing = activeTab === 'home' || activeTab === 'docs' || activeTab === 'pricing' || !isAuthenticated;
 
   // Handle click outside to close profile dropdown
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth, i
   }, [isProfileOpen]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     switchTab('home');
     setIsProfileOpen(false);
     setShowLogoutConfirm(false);
@@ -505,7 +505,7 @@ export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth, i
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" /></svg>
             </div>
 
-            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 400, color: '#fff', marginBottom: 12 }}>Check out?</h2>
+            <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 24, fontWeight: 500, color: '#fff', marginBottom: 12 }}>Check out?</h2>
             <p style={{ fontSize: 13, lineHeight: 1.6, color: theme.textMuted, marginBottom: 32 }}>Are you sure you want to end your current session? You'll need to log back in to access your data.</p>
 
             <div style={{ display: 'flex', gap: 12 }}>

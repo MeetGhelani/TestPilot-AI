@@ -66,7 +66,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 interface Props { 
   onBusyChange?: (busy: boolean) => void;
-  switchTab?: (tab: 'home' | 'history' | 'record' | 'suggest' | 'audit' | 'settings') => void;
+  switchTab?: (tab: string) => void;
   setHighlightId?: (id: string | null) => void;
 }
 export default function SmartSuggester({ onBusyChange, switchTab, setHighlightId }: Props = {}) {

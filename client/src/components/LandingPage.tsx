@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
-export default function LandingPage({ isAuthenticated, isSessionLoading, onGetStarted, onGoToApp }: { isAuthenticated: boolean, isSessionLoading: boolean, onGetStarted: () => void, onGoToApp: () => void }) {
+export default function LandingPage({ onGetStarted, onGoToApp }: { onGetStarted: () => void, onGoToApp: () => void }) {
+  const { session, isLoading: isSessionLoading } = useAuth();
+  const isAuthenticated = !!session;
   const [isVisible, setIsVisible] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [auditScore, setAuditScore] = useState(0);

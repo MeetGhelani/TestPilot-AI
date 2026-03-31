@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Routes, Route, useNavigate } from 'react-router-dom'
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import SmartSuggester from './components/SmartSuggester'
 import RecordReplay from './components/RecordReplay'
 import HistoryPanel from './components/HistoryPanel'
@@ -12,6 +12,8 @@ import DocsPage from './components/DocsPage'
 import PricingPage from './components/PricingPage'
 import ResetPassword from './components/ResetPassword'
 import { supabase } from '../../lib/supabase'
+import { AuthGuard } from './components/AuthGuard'
+import { useAuth } from './contexts/AuthContext'
 
 export type Platform = 'web' | 'mobile' | 'desktop'
 
@@ -93,9 +95,8 @@ type TabId = 'home' | 'history' | 'record' | 'suggest' | 'audit' | 'settings' | 
 
 export default function App() {
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<TabId>(
-    () => (localStorage.getItem('activeTab') as TabId) ?? 'home'
-  )
+  const location = useLocation()
+  const activeTab = location.pathname === '/' ? 'home' : (location.pathname.split('/')[1] || 'home')
   const [theme, setTheme] = useState<'dark' | 'light'>(
     () => (localStorage.getItem('app-theme') as 'dark' | 'light') ?? 'dark'
   )
@@ -104,15 +105,13 @@ export default function App() {
   const [globalBusy, setGlobalBusy] = useState(false)
   const [isAuthOpen, setIsAuthOpen] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'update_password'>('login')
-  const [session, setSession] = useState<any>(null)
-  const [isSessionLoading, setIsSessionLoading] = useState(true)
+  const { session, isLoading: isSessionLoading } = useAuth()
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [highlightId, setHighlightId] = useState<string | null>(null)
 
-  const switchTab = (tab: TabId) => {
+  const switchTab = (tab: string) => {
     if (globalBusy) return
-    setActiveTab(tab)
-    localStorage.setItem('activeTab', tab)
+    navigate(tab === 'home' ? '/' : `/${tab}`)
   }
 
   const toggleTheme = (newTheme: 'dark' | 'light') => {
@@ -158,41 +157,22 @@ export default function App() {
     // Reset scroll position and show-scroll state when tab changes
     window.scrollTo(0, 0);
     setShowScrollTop(false);
-
-    // Auth Guard: If not authenticated and trying to access an app tab, go home
-    // (Except for 'home' and 'docs' which are public)
-    const publicTabs: TabId[] = ['home', 'docs', 'pricing'];
-    if (!isSessionLoading && !session && !publicTabs.includes(activeTab)) {
-      switchTab('home');
-    }
-  }, [activeTab, session, isSessionLoading]);
+  }, [location.pathname]);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setIsSessionLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state event:', event, session?.user?.email);
-      setSession(session);
-      
-      // Only redirect on SIGNED_IN if it's a social login redirect (has tokens in URL)
-      // Regular logins are handled explicitly via handleAuthSuccess called from the AuthPage
-      if (session && event === 'SIGNED_IN') {
+    // Handle specific auth routing side-effects (e.g. social login hash or password recovery)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      if (currentSession && event === 'SIGNED_IN') {
         const isSocialRedirect = window.location.hash.includes('access_token') || 
                                window.location.search.includes('code=');
         if (isSocialRedirect) {
           handleAuthSuccess();
         }
       }
-
       if (event === 'PASSWORD_RECOVERY') {
         navigate('/reset-password');
       }
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -274,9 +254,6 @@ export default function App() {
             switchTab={switchTab} 
             globalBusy={globalBusy} 
             onOpenAuth={openAuth} 
-            isAuthenticated={!!session} 
-            user={session?.user}
-            isSessionLoading={isSessionLoading}
           />
 
           {isAuthOpen && (
@@ -289,68 +266,91 @@ export default function App() {
 
           {/* Body */}
           <div style={{ flex: 1, display: 'flex', gap: 0, position: 'relative' }}>
-            {activeTab === 'home' ? (
-              <div style={{ flex: 1 }}>
-                <LandingPage 
-                  isAuthenticated={!!session} 
-                  isSessionLoading={isSessionLoading}
-                  onGetStarted={() => openAuth('signup')} 
-                  onGoToApp={() => switchTab('audit')} 
-                />
-              </div>
-            ) : activeTab === 'record' ? (
-              <div style={{ flex: 1, padding: '40px 0' }} className="mobile-py-4">
-                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
-                  <RecordReplay onBusyChange={setGlobalBusy} switchTab={switchTab} setHighlightId={setHighlightId} />
-                </div>
-              </div>
-            ) : activeTab === 'suggest' ? (
-              <div style={{ flex: 1, padding: '40px 0' }} className="mobile-py-4">
-                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
-                  <SmartSuggester onBusyChange={setGlobalBusy} switchTab={switchTab} setHighlightId={setHighlightId} />
-                </div>
-              </div>
-            ) : activeTab === 'audit' ? (
-              <div style={{ flex: 1, padding: '40px 0' }} className="mobile-py-4">
-                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
-                  <AuditPanel onBusyChange={setGlobalBusy} theme={theme} />
-                </div>
-              </div>
-            ) : activeTab === 'history' ? (
-              <div style={{ flex: 1, padding: '40px 0' }} className="mobile-py-4">
-                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
-                  <HistoryPanel 
-                    history={history} 
-                    onClear={handleClearHistory} 
-                    onDeleteItem={handleDeleteHistoryItem} 
-                    onDeleteItems={handleDeleteMultipleHistoryItems} 
-                    highlightId={highlightId}
-                    setHighlightId={setHighlightId}
+            <Routes>
+              <Route path="/" element={
+                <div style={{ flex: 1 }}>
+                  <LandingPage 
+                    onGetStarted={() => openAuth('signup')} 
+                    onGoToApp={() => switchTab('audit')} 
                   />
                 </div>
-              </div>
-            ) : activeTab === 'docs' ? (
-              <div style={{ flex: 1, padding: '40px 0', background: '#0B0F0C' }} className="mobile-py-4">
-                <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
-                  <DocsPage theme={theme} />
+              } />
+              
+              <Route path="/record" element={
+                <AuthGuard onUnauthorized={() => { switchTab('home'); openAuth('login'); }}>
+                  <div style={{ flex: 1, padding: '40px 0' }} className="mobile-py-4">
+                    <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
+                      <RecordReplay onBusyChange={setGlobalBusy} switchTab={switchTab} setHighlightId={setHighlightId} />
+                    </div>
+                  </div>
+                </AuthGuard>
+              } />
+
+              <Route path="/suggest" element={
+                <AuthGuard onUnauthorized={() => { switchTab('home'); openAuth('login'); }}>
+                  <div style={{ flex: 1, padding: '40px 0' }} className="mobile-py-4">
+                    <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
+                      <SmartSuggester onBusyChange={setGlobalBusy} switchTab={switchTab} setHighlightId={setHighlightId} />
+                    </div>
+                  </div>
+                </AuthGuard>
+              } />
+
+              <Route path="/audit" element={
+                <AuthGuard onUnauthorized={() => { switchTab('home'); openAuth('login'); }}>
+                  <div style={{ flex: 1, padding: '40px 0' }} className="mobile-py-4">
+                    <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
+                      <AuditPanel onBusyChange={setGlobalBusy} theme={theme} />
+                    </div>
+                  </div>
+                </AuthGuard>
+              } />
+
+              <Route path="/history" element={
+                <AuthGuard onUnauthorized={() => { switchTab('home'); openAuth('login'); }}>
+                  <div style={{ flex: 1, padding: '40px 0' }} className="mobile-py-4">
+                    <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
+                      <HistoryPanel 
+                        history={history} 
+                        onClear={handleClearHistory} 
+                        onDeleteItem={handleDeleteHistoryItem} 
+                        onDeleteItems={handleDeleteMultipleHistoryItems} 
+                        highlightId={highlightId}
+                        setHighlightId={setHighlightId}
+                      />
+                    </div>
+                  </div>
+                </AuthGuard>
+              } />
+
+              <Route path="/docs/*" element={
+                <div style={{ flex: 1, padding: '40px 0', background: '#0B0F0C' }} className="mobile-py-4">
+                  <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }} className="mobile-px-4">
+                    <DocsPage theme={theme} />
+                  </div>
                 </div>
-              </div>
-            ) : activeTab === 'pricing' ? (
-              <div style={{ flex: 1 }}>
-                <PricingPage
-                  onGetStarted={() => openAuth('signup')}
-                  onUpgradePro={() => openAuth('signup')}
-                />
-              </div>
-            ) : (
-              <div style={{ flex: 1 }}>
-                <SettingsPage 
-                  user={session?.user} 
-                  theme={theme}
-                  onToggleTheme={toggleTheme}
-                />
-              </div>
-            )}
+              } />
+
+              <Route path="/pricing" element={
+                <div style={{ flex: 1 }}>
+                  <PricingPage
+                    onGetStarted={() => openAuth('signup')}
+                    onUpgradePro={() => openAuth('signup')}
+                  />
+                </div>
+              } />
+
+              <Route path="/settings" element={
+                <AuthGuard onUnauthorized={() => { switchTab('home'); openAuth('login'); }}>
+                  <div style={{ flex: 1 }}>
+                    <SettingsPage 
+                      theme={theme}
+                      onToggleTheme={toggleTheme}
+                    />
+                  </div>
+                </AuthGuard>
+              } />
+            </Routes>
 
             {/* Scroll-to-top button - Premium Design (Product Pages only) */}
             {activeTab !== 'home' && showScrollTop && (

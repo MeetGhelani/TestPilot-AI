@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SettingsPageProps {
-  user: any;
   theme: 'dark' | 'light';
   onToggleTheme: (newTheme: 'dark' | 'light') => void;
 }
 
-export default function SettingsPage({ user, theme: currentTheme, onToggleTheme }: SettingsPageProps) {
+export default function SettingsPage({ theme: currentTheme, onToggleTheme }: SettingsPageProps) {
+  const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'account' | 'security' | 'preferences'>('profile');
   const [isUpdating, setIsUpdating] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Form states
   const [fullName, setFullName] = useState(user?.user_metadata?.full_name || '');
@@ -51,13 +53,25 @@ export default function SettingsPage({ user, theme: currentTheme, onToggleTheme 
     setIsUpdating(true);
     setMessage(null);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(user?.email || '', {
         redirectTo: window.location.origin,
       });
       if (error) throw error;
       setMessage({ type: 'success', text: 'Password reset link sent to your email!' });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setIsUpdating(true);
+    try {
+      await signOut();
+      setShowLogoutConfirm(false);
+    } catch (err: any) {
+      setMessage({ type: 'error', text: 'Failed to logout: ' + err.message });
     } finally {
       setIsUpdating(false);
     }
@@ -199,7 +213,7 @@ export default function SettingsPage({ user, theme: currentTheme, onToggleTheme 
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                     <code style={{ background: 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: 8, fontSize: 13, color: theme.accent }}>{user?.id}</code>
                     <button 
-                      onClick={() => { navigator.clipboard.writeText(user?.id); alert('Copied to clipboard!'); }}
+                      onClick={() => { navigator.clipboard.writeText(user?.id || ''); alert('Copied to clipboard!'); }}
                       style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer' }}
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
@@ -210,7 +224,7 @@ export default function SettingsPage({ user, theme: currentTheme, onToggleTheme 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 24 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: theme.textMuted, letterSpacing: 1.5, marginBottom: 8 }}>JOINED ON</label>
-                    <div style={{ fontSize: 15, fontWeight: 600 }}>{new Date(user?.created_at).toLocaleDateString()}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600 }}>{new Date(user?.created_at || new Date()).toLocaleDateString()}</div>
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: theme.textMuted, letterSpacing: 1.5, marginBottom: 8 }}>CURRENT PLAN</label>
@@ -219,6 +233,74 @@ export default function SettingsPage({ user, theme: currentTheme, onToggleTheme 
                       <span style={{ fontSize: 10, fontWeight: 900, background: 'rgba(200, 240, 105, 0.1)', color: theme.accent, padding: '2px 8px', borderRadius: 100, border: `1px solid rgba(200, 240, 105, 0.2)` }}>ACTIVE</span>
                     </div>
                   </div>
+                </div>
+
+                <div style={{ height: 1, background: theme.border, margin: '8px 0' }} />
+                <div style={{display: 'flex', paddingTop:10,paddingBottom:15, background: 'rgba(255, 94, 86, 0.01)',alignItems: 'center', flexDirection: 'column', border: `1px solid #ff5e5644` , borderRadius: 20, padding: 32}}><span style={{ color: 'var(--fail)', fontSize: 20, fontWeight: 400 ,opacity:0.7}}>Danger Zone!</span>
+
+                  {!showLogoutConfirm ? (
+                    <div style={{ display: 'flex', marginTop:12 }}>
+                      <button
+                        onClick={() => setShowLogoutConfirm(true)}
+                        style={{
+                          padding: '12px 24px', borderRadius: 12, background: 'rgba(255, 95, 86, 0.1)',
+                          border: '1px solid rgba(255, 95, 86, 0.2)', color: '#ff5f56', fontSize: 13,
+                          fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+                          display: 'flex', alignItems: 'center', gap: 8
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 95, 86, 0.15)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 95, 86, 0.1)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" /></svg>
+                        LOGOUT
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      marginTop: 12, padding: 32, background: 'transparent', 
+                      borderRadius: 20,
+                      textAlign: 'center', animation: 'fadeIn 0.3s ease-out' 
+                    }}>
+                      <div style={{
+                        width: 48, height: 48, borderRadius: '50%', background: 'rgba(255, 95, 86, 0.1)',
+                        color: '#ff5f56', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        margin: '0 auto 20px'
+                      }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" /></svg>
+                      </div>
+
+                      <h2 style={{ fontSize: 20, fontWeight: 700, color: theme.text, marginBottom: 12 }}>Ready to leave?</h2>
+                      <p style={{ fontSize: 13, lineHeight: 1.6, color: theme.textMuted, marginBottom: 32 }}>Are you sure you want to end your current session? You'll need to log back in to access your data.</p>
+
+                      <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                        <button
+                          onClick={() => setShowLogoutConfirm(false)}
+                          style={{
+                            padding: '12px 32px', borderRadius: 12, background: 'transparent',
+                            border: `1px solid ${theme.border}`, color: 'var(--text2)', fontSize: 13,
+                            fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = theme.textMuted; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = theme.border; }}
+                        >
+                          STAY
+                        </button>
+                        <button
+                          onClick={handleLogout}
+                          style={{
+                            padding: '12px 32px', borderRadius: 12, background: 'var(--fail)',
+                            border: 'none', color: '#000', fontSize: 13,
+                            fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+                            boxShadow: '0 8px 16px rgba(255, 95, 86, 0.2)'
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                        >
+                          LOGOUT
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

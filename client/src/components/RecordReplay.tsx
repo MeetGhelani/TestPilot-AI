@@ -16,7 +16,7 @@ const ICON: Record<string, string> = { navigate: '→', click: '↖', fill: '✎
 
 interface Props { 
   onBusyChange?: (busy: boolean) => void;
-  switchTab?: (tab: 'home' | 'history' | 'record' | 'suggest' | 'audit' | 'settings') => void;
+  switchTab?: (tab: string) => void;
   setHighlightId?: (id: string | null) => void;
 }
 
