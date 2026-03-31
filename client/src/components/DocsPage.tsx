@@ -12,7 +12,7 @@ export default function DocsPage({ theme }: { theme: 'dark' | 'light' }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSection, setActiveSection] = useState('getting-started');
 
-  const sections: DocsSection[] = [
+  const sections = useMemo<DocsSection[]>(() => [
     {
       id: 'getting-started',
       title: 'Getting Started',
@@ -198,11 +198,11 @@ export default function DocsPage({ theme }: { theme: 'dark' | 'light' }) {
       category: 'features',
       content: (
         <>
-          <p>Run deep technical audits to ensure your site is fast, accessible, and visible to search engines. We use industry-standard metrics to give you a full picture of your site's health.</p>
-          
+          <p>Run deep technical audits to ensure your site is fast, accessible, and visible to search engines. We use industry-standard metrics to give you a full picture of your site’s health.</p>
+
           <div style={{ marginTop: 24 }}>
             <h4 style={{ color: 'var(--text2)' }}>Audit Personas</h4>
-            <p style={{ fontSize: 13, color: 'var(--text3)' }}>TestPilot AI doesn't just check 'best practices'; it simulates the experience of real users with different adaptive needs.</p>
+            <p style={{ fontSize: 13, color: 'var(--text3)' }}>TestPilot AI doesn’t just check ‘best practices’; it simulates the experience of real users with different adaptive needs.</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
               <div style={{ padding: 12, background: 'rgba(56, 189, 248, 0.05)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: 8 }}>
                 <span style={{ fontWeight: 700, fontSize: 11, color: 'var(--info)' }}>Screen-reader</span>
@@ -249,6 +249,223 @@ export default function DocsPage({ theme }: { theme: 'dark' | 'light' }) {
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          {/* ── ADVANCED FEATURES DIVIDER ── */}
+          <div style={{ margin: '48px 0 32px', display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 2 }}>Advanced Features</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          </div>
+
+          {/* ── 1. AUDIT COMPARISON ── */}
+          <div style={{ marginBottom: 48 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 22 }}>📈</span>
+              <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Audit Comparison</h3>
+              <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'rgba(163, 230, 53, 0.12)', color: 'var(--accent)', border: '1px solid rgba(163,230,53,0.25)' }}>PRO FEATURE</span>
+            </div>
+            <p style={{ fontSize: 14, color: 'var(--text3)', marginBottom: 20 }}>
+              Run multiple audits over time and compare them side-by-side. Track whether your optimizations are actually improving performance — or causing regressions you haven’t noticed yet.
+            </p>
+
+            <div style={{ padding: 20, background: 'rgba(163, 230, 53, 0.04)', border: '1px solid rgba(163, 230, 53, 0.15)', borderRadius: 14, marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent)', marginBottom: 10 }}>⚡ How Comparison Works</div>
+              <ol style={{ fontSize: 13, color: 'var(--text3)', lineHeight: 2, margin: 0, paddingLeft: 20 }}>
+                <li>Run an initial audit on your site — this becomes your <strong>Baseline</strong>.</li>
+                <li>Make changes (e.g., optimise images, reduce JS bundle size, fix CLS issues).</li>
+                <li>Run a new audit and select <strong>“Compare with previous”</strong> from the Audit History panel.</li>
+                <li>TestPilot AI renders a side-by-side graph showing deltas for every metric.</li>
+              </ol>
+            </div>
+
+            <h4 style={{ color: 'var(--text2)', marginBottom: 10, fontSize: 14 }}>Example: Before vs After Optimisation</h4>
+            <div className="docs-table-container" style={{ border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead style={{ background: '#111512' }}>
+                  <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                    <th style={{ padding: '12px 16px', color: 'var(--text3)' }}>Metric</th>
+                    <th style={{ padding: '12px 16px', color: '#f87171' }}>Before</th>
+                    <th style={{ padding: '12px 16px', color: '#4ade80' }}>After</th>
+                    <th style={{ padding: '12px 16px', color: 'var(--text3)' }}>Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <td style={{ padding: '12px 16px', color: 'var(--text2)', fontWeight: 600 }}>Performance Score</td>
+                    <td style={{ padding: '12px 16px', color: '#f87171' }}>61</td>
+                    <td style={{ padding: '12px 16px', color: '#4ade80' }}>88</td>
+                    <td style={{ padding: '12px 16px', color: '#4ade80', fontWeight: 700 }}>▲ +27</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <td style={{ padding: '12px 16px', color: 'var(--text2)', fontWeight: 600 }}>LCP</td>
+                    <td style={{ padding: '12px 16px', color: '#f87171' }}>4.2s</td>
+                    <td style={{ padding: '12px 16px', color: '#4ade80' }}>2.1s</td>
+                    <td style={{ padding: '12px 16px', color: '#4ade80', fontWeight: 700 }}>▲ −2.1s</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <td style={{ padding: '12px 16px', color: 'var(--text2)', fontWeight: 600 }}>CLS</td>
+                    <td style={{ padding: '12px 16px', color: '#f87171' }}>0.31</td>
+                    <td style={{ padding: '12px 16px', color: '#4ade80' }}>0.04</td>
+                    <td style={{ padding: '12px 16px', color: '#4ade80', fontWeight: 700 }}>▲ −0.27</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '12px 16px', color: 'var(--text2)', fontWeight: 600 }}>Accessibility Score</td>
+                    <td style={{ padding: '12px 16px', color: '#fbbf24' }}>72</td>
+                    <td style={{ padding: '12px 16px', color: '#4ade80' }}>95</td>
+                    <td style={{ padding: '12px 16px', color: '#4ade80', fontWeight: 700 }}>▲ +23</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ marginTop: 16, padding: '14px 18px', background: 'rgba(56, 189, 248, 0.05)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: 10, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <span style={{ fontSize: 18, marginTop: 2 }}>💼</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--info)' }}>Real-world Use Case</div>
+                <p style={{ margin: '6px 0 0 0', fontSize: 13, color: 'var(--text3)', lineHeight: 1.7 }}>
+                  Your team shipped new hero images. Run an audit before and after the deploy. The comparison view instantly shows whether LCP regressed — no manual before/after logging required.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── 2. DOWNLOADABLE AUDIT REPORT (PDF) ── */}
+          <div style={{ marginBottom: 48 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 22 }}>📄</span>
+              <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Downloadable Audit Report (PDF)</h3>
+            </div>
+            <p style={{ fontSize: 14, color: 'var(--text3)', marginBottom: 20 }}>
+              Export a complete, professionally formatted audit report as a PDF — including all scores, metric breakdowns, category insights, and actionable recommendations. No copy-pasting required.
+            </p>
+
+            <div style={{ padding: 20, background: 'rgba(163, 230, 53, 0.04)', border: '1px solid rgba(163, 230, 53, 0.15)', borderRadius: 14, marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent)', marginBottom: 12 }}>📋 What’s Included in the PDF</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {[
+                  ['🎯', 'Overall Performance Score'],
+                  ['♿', 'Accessibility Breakdown'],
+                  ['🔍', 'SEO Health Report'],
+                  ['⚡', 'Core Web Vitals (FCP, LCP, CLS)'],
+                  ['📱', 'Mobile vs Desktop Delta'],
+                  ['💡', 'Prioritised Recommendations'],
+                ].map(([icon, label]) => (
+                  <div key={String(label)} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: 'var(--text2)' }}>
+                    <span>{icon}</span>
+                    <span>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <h4 style={{ color: 'var(--text2)', marginBottom: 12, fontSize: 14 }}>When to Use PDF Reports</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+              <div style={{ padding: 16, background: 'var(--surface2)', borderRadius: 12, textAlign: 'center' }}>
+                <div style={{ fontSize: 24, marginBottom: 8 }}>🤝</div>
+                <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text2)', marginBottom: 6 }}>Client Reporting</div>
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--text3)' }}>Share polished audit snapshots with stakeholders without granting platform access.</p>
+              </div>
+              <div style={{ padding: 16, background: 'var(--surface2)', borderRadius: 12, textAlign: 'center' }}>
+                <div style={{ fontSize: 24, marginBottom: 8 }}>👥</div>
+                <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text2)', marginBottom: 6 }}>Team Handoffs</div>
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--text3)' }}>Attach the PDF to a Jira ticket or Slack thread to give devs full context immediately.</p>
+              </div>
+              <div style={{ padding: 16, background: 'var(--surface2)', borderRadius: 12, textAlign: 'center' }}>
+                <div style={{ fontSize: 24, marginBottom: 8 }}>🗂️</div>
+                <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text2)', marginBottom: 6 }}>Documentation</div>
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--text3)' }}>Keep a dated PDF archive of every audit to prove compliance or track long-term trends.</p>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 16, padding: '14px 18px', background: 'rgba(163, 230, 53, 0.04)', border: '1px solid rgba(163,230,53,0.15)', borderRadius: 10 }}>
+              <strong style={{ color: 'var(--accent)', fontSize: 13 }}>💡 How to Download</strong>
+              <p style={{ margin: '6px 0 0 0', fontSize: 13, color: 'var(--text3)' }}>
+                After an audit completes, click the <strong>⬇ Download PDF</strong> button in the top-right of the Audit panel. The report is generated instantly and saved to your downloads folder.
+              </p>
+            </div>
+          </div>
+
+          {/* ── 3. DEVICE COMPARISON ── */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 22 }}>📱</span>
+              <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Device Comparison (Mobile vs Desktop)</h3>
+            </div>
+            <p style={{ fontSize: 14, color: 'var(--text3)', marginBottom: 20 }}>
+              Your site behaves differently on mobile and desktop — network conditions, viewport size, and rendering engines all play a role. TestPilot AI audits both environments simultaneously and lets you compare results side-by-side.
+            </p>
+
+            <div style={{ padding: 20, background: 'rgba(251, 191, 36, 0.04)', border: '1px solid rgba(251, 191, 36, 0.2)', borderRadius: 14, marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--warning)', marginBottom: 8 }}>⚠️ Why This Matters</div>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--text3)', lineHeight: 1.7 }}>
+                Google’s ranking algorithm uses <strong>mobile-first indexing</strong>. A desktop score of 95 means little if your mobile score is 42. Device comparison ensures you’re optimised for the environment that matters most to your users and search rankings.
+              </p>
+            </div>
+
+            <h4 style={{ color: 'var(--text2)', marginBottom: 10, fontSize: 14 }}>How Metrics Differ Across Devices</h4>
+            <div className="docs-table-container" style={{ border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto', marginBottom: 20 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead style={{ background: '#111512' }}>
+                  <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                    <th style={{ padding: '12px 16px', color: 'var(--text3)' }}>Metric</th>
+                    <th style={{ padding: '12px 16px', color: '#60a5fa' }}>🖥️ Desktop</th>
+                    <th style={{ padding: '12px 16px', color: '#c084fc' }}>📱 Mobile</th>
+                    <th style={{ padding: '12px 16px', color: 'var(--text3)' }}>Why They Differ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <td style={{ padding: '12px 16px', color: 'var(--text2)', fontWeight: 600 }}>Performance Score</td>
+                    <td style={{ padding: '12px 16px', color: '#60a5fa' }}>88</td>
+                    <td style={{ padding: '12px 16px', color: '#c084fc' }}>54</td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text3)' }}>Mobile uses throttled CPU &amp; 3G network simulation.</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <td style={{ padding: '12px 16px', color: 'var(--text2)', fontWeight: 600 }}>First Contentful Paint</td>
+                    <td style={{ padding: '12px 16px', color: '#60a5fa' }}>1.1s</td>
+                    <td style={{ padding: '12px 16px', color: '#c084fc' }}>3.2s</td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text3)' }}>Slower network &amp; parser on mobile devices.</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <td style={{ padding: '12px 16px', color: 'var(--text2)', fontWeight: 600 }}>Cumulative Layout Shift</td>
+                    <td style={{ padding: '12px 16px', color: '#60a5fa' }}>0.03</td>
+                    <td style={{ padding: '12px 16px', color: '#c084fc' }}>0.22</td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text3)' }}>Fixed-px elements overflow on narrow viewports.</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '12px 16px', color: 'var(--text2)', fontWeight: 600 }}>Total Blocking Time</td>
+                    <td style={{ padding: '12px 16px', color: '#60a5fa' }}>80ms</td>
+                    <td style={{ padding: '12px 16px', color: '#c084fc' }}>410ms</td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text3)' }}>Heavy JS execution blocks mobile main thread longer.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+              <div style={{ flex: 1, padding: 16, background: 'rgba(96, 165, 250, 0.05)', border: '1px solid rgba(96, 165, 250, 0.2)', borderRadius: 12, textAlign: 'center' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>🖥️</div>
+                <div style={{ fontWeight: 700, color: '#60a5fa', fontSize: 13 }}>Desktop Audit</div>
+                <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text3)' }}>1280px viewport · Full CPU · Fast network</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', fontWeight: 700, color: 'var(--text3)', fontSize: 18 }}>⇄</div>
+              <div style={{ flex: 1, padding: 16, background: 'rgba(192, 132, 252, 0.05)', border: '1px solid rgba(192, 132, 252, 0.2)', borderRadius: 12, textAlign: 'center' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>📱</div>
+                <div style={{ fontWeight: 700, color: '#c084fc', fontSize: 13 }}>Mobile Audit</div>
+                <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text3)' }}>375px viewport · 4× CPU throttle · 3G network</p>
+              </div>
+            </div>
+
+            <div style={{ padding: '14px 18px', background: 'rgba(56, 189, 248, 0.05)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: 10, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <span style={{ fontSize: 18, marginTop: 2 }}>💼</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--info)' }}>Real-world Use Case</div>
+                <p style={{ margin: '6px 0 0 0', fontSize: 13, color: 'var(--text3)', lineHeight: 1.7 }}>
+                  A marketing team launches a new landing page. Desktop scores look great. But device comparison reveals a CLS of 0.22 on mobile — caused by a banner image without explicit dimensions. Fix it once, see the mobile score jump in the next audit.
+                </p>
+              </div>
+            </div>
           </div>
         </>
       )
@@ -389,7 +606,8 @@ await expect(page.locator('h1')).toContainText('Welcome');`}
         </>
       )
     }
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
 
   const filteredSections = useMemo(() => {
     if (!searchQuery) return sections;
@@ -398,6 +616,36 @@ await expect(page.locator('h1')).toContainText('Welcome');`}
       s.id.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [searchQuery, sections]);
+
+  // Auto-scroll & highlight — fires ONLY when searchQuery itself changes
+  useEffect(() => {
+    if (searchQuery) {
+      // Derive first match directly from stable sections ref
+      const first = sections.find(
+        s =>
+          s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          s.id.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      if (first) {
+        setActiveSection(first.id);
+        const t = setTimeout(() => {
+          const el = document.getElementById(first.id);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 80);
+        return () => clearTimeout(t);
+      }
+    } else {
+      // Query cleared — reset highlight and scroll to top
+      setActiveSection('getting-started');
+      const t = setTimeout(() => {
+        const el = document.getElementById('getting-started');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  // Only re-run when the typed query changes, never on scroll/render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
@@ -444,13 +692,50 @@ await expect(page.locator('h1')).toContainText('Welcome');`}
               background: 'rgba(255,255,255,0.03)',
               border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: 8,
-              padding: '10px 12px 10px 36px',
+              padding: '10px 32px 10px 36px',
               color: '#fff',
               fontSize: 13,
-              outline: 'none'
+              outline: 'none',
+              boxSizing: 'border-box'
             }}
           />
           <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }}>🔍</span>
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              title="Clear search"
+              style={{
+                position: 'absolute',
+                right: 10,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'rgba(255,255,255,0.08)',
+                border: 'none',
+                borderRadius: '50%',
+                width: 18,
+                height: 18,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: 11,
+                lineHeight: 1,
+                padding: 0,
+                transition: 'background 0.15s, color 0.15s'
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.18)';
+                (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.08)';
+                (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.5)';
+              }}
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         {/* Links */}

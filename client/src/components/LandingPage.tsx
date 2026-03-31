@@ -282,7 +282,7 @@ export default function LandingPage({ isAuthenticated, isSessionLoading, onGetSt
               Automate QA. <br />
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <span style={{ color: theme.textMuted }}>Audit&nbsp;</span>
-                <span style={{ color: theme.accent, position: 'relative' }}>
+                <span style={{ background: 'linear-gradient(90deg, #99c92bde, #b9d37d)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', position: 'relative' }}>
                   {typedText}
                   <span style={{ position: 'absolute', right: -6, top: '10%', height: '80%', width: 3, background: theme.accent, animation: 'blink-caret 0.8s step-end infinite' }} />
                 </span>

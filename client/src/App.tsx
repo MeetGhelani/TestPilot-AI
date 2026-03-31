@@ -9,6 +9,7 @@ import Navbar from './components/Navbar'
 import AuthPage from './components/AuthPage'
 import SettingsPage from './components/SettingsPage'
 import DocsPage from './components/DocsPage'
+import PricingPage from './components/PricingPage'
 import ResetPassword from './components/ResetPassword'
 import { supabase } from '../../lib/supabase'
 
@@ -88,7 +89,7 @@ export interface AuditResult {
 
 export type HistoryItem = TestResult | AuditResult
 
-type TabId = 'home' | 'history' | 'record' | 'suggest' | 'audit' | 'settings' | 'docs'
+type TabId = 'home' | 'history' | 'record' | 'suggest' | 'audit' | 'settings' | 'docs' | 'pricing'
 
 export default function App() {
   const navigate = useNavigate()
@@ -160,7 +161,7 @@ export default function App() {
 
     // Auth Guard: If not authenticated and trying to access an app tab, go home
     // (Except for 'home' and 'docs' which are public)
-    const publicTabs: TabId[] = ['home', 'docs'];
+    const publicTabs: TabId[] = ['home', 'docs', 'pricing'];
     if (!isSessionLoading && !session && !publicTabs.includes(activeTab)) {
       switchTab('home');
     }
@@ -333,6 +334,13 @@ export default function App() {
                 <div style={{ maxWidth: 1300, margin: '0 auto', padding: '0 40px' }}>
                   <DocsPage theme={theme} />
                 </div>
+              </div>
+            ) : activeTab === 'pricing' ? (
+              <div style={{ flex: 1 }}>
+                <PricingPage
+                  onGetStarted={() => openAuth('signup')}
+                  onUpgradePro={() => openAuth('signup')}
+                />
               </div>
             ) : (
               <div style={{ flex: 1 }}>

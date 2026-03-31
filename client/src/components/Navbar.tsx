@@ -134,9 +134,10 @@ export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth, i
                     onClick={(e) => {
                       e.preventDefault();
                       if (item === 'Home') switchTab('home');
+                      if (item === 'Pricing') switchTab('pricing');
                       if (item === 'Docs') switchTab('docs');
                     }}
-                    className={`nav-link ${item.toLowerCase() === activeTab ? 'active' : ''}`}
+                    className={`nav-link ${(item.toLowerCase() === activeTab) ? 'active' : ''}`}
                     style={{ fontSize: 14, fontWeight: 500, textDecoration: 'none' }}
                   >
                     {item}
@@ -388,7 +389,9 @@ export default function Navbar({ activeTab, switchTab, globalBusy, onOpenAuth, i
             {isMarketing ? (
               <>
                 {['Home', 'Pricing', 'Docs'].map(item => (
-                  <a key={item} href="#" style={{ color: theme.text, fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>{item}</a>
+                  <a key={item} href="#"
+                    onClick={e => { e.preventDefault(); if (item === 'Home') switchTab('home'); if (item === 'Pricing') switchTab('pricing'); if (item === 'Docs') switchTab('docs'); setIsMobileMenuOpen(false); }}
+                    style={{ color: theme.text, fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>{item}</a>
                 ))}
                 <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: 20 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: theme.textMuted, marginBottom: 16, textTransform: 'uppercase' }}>Solutions</div>
