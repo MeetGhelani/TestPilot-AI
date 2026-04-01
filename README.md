@@ -240,53 +240,52 @@ Every test step uses a smart execution engine:
 
 ```
 ai-test-tool/
-├── server/
-│   └── index.ts              — Express API server
-├── src/
-│   ├── ai/
-│   │   └── testGenerator.ts  — NL → test steps parser
-│   ├── auditor/
-│   │   └── siteAuditor.ts    — Deep audit engine (Perf, A11y, SEO)
-│   ├── cli.ts                — Command line interface
-│   ├── engine/
-│   │   └── smartSelector.ts  — Multi-strategy selector + auto-heal + retry
-│   ├── drivers/
-│   │   ├── webDriver.ts      — Playwright web driver
-│   │   ├── mobileDriver.ts   — Appium mobile driver
-│   │   └── desktopDriver.ts  — Playwright Electron driver
-│   ├── runner/
-│   │   └── testRunner.ts     — Orchestrator + HTML reporter
-│   ├── recorder/
-│   │   └── testRecorder.ts   — Live browser recorder
-│   ├── scanner/
-│   │   └── siteScanner.ts    — CSS selector auto-detector
-│   ├── suggester/
-│   │   └── testSuggester.ts  — Smart test suggestion engine
-│   └── types/
-│       └── index.ts          — Shared TypeScript types
-├── client/                   — React + Vite frontend
-│   ├── src/
-│   │   ├── App.tsx           — Main router and layout orchestrator
-│   │   ├── main.tsx          — App entry point with BrowserRouter
-│   │   └── components/
-│   │       ├── AuditPanel.tsx
-│   │       ├── TestForm.tsx
-│   │       ├── ResultPanel.tsx
-│   │       ├── HistoryPanel.tsx
-│   │       ├── RecordReplay.tsx
-│   │       ├── StepEditor.tsx
-│   │       ├── SmartSuggester.tsx
-│   │       ├── SiteScanner.tsx
-│   │       ├── ScreenshotViewer.tsx
-│   │       ├── AuthPage.tsx      — Login/Signup/Forgot Password modal
-│   │       ├── ResetPassword.tsx — Dedicated password reset page
-│   │       ├── Navbar.tsx        — Global navigation component
-│   │       └── SettingsPage.tsx  — User profile and account settings
-├── lib/
-│   └── supabase.js           — Supabase client configuration
-├── reports/                  — Auto-generated reports + screenshots
-├── data/                     — Persistent storage for scans and audits
-└── package.json
+├── client/                   # Frontend React Application
+│   ├── public/               # Static assets & images
+│   │   └── blog/             # Blog post featured images
+│   ├── src/                  
+│   │   ├── components/       # Reusable UI components (Pages, Modals, Navbar)
+│   │   ├── contexts/         # React Context providers (AuthContext)
+│   │   ├── hooks/            # Custom React hooks
+│   │   ├── App.tsx           # Main application routing
+│   │   └── main.tsx          # Application entry point
+│   ├── Dockerfile.dev        # Development container setup for Vite
+│   ├── package.json          # Frontend dependencies
+│   └── .env.example          # Template for frontend environment variables
+│
+├── server/                   # Backend Node.js & Express API
+│   ├── index.ts              # Main server entry & API routes
+│   ├── reportTemplate.ts     # HTML templates for test reports
+│   ├── Dockerfile.dev        # Development container (Playwright optimized)
+│   ├── package.json          # Backend dependencies
+│   └── .env.example          # Template for backend environment variables
+│
+├── src/                      # Core Test Automation & AI Engine
+│   ├── ai/                   # AI logic (Natural language test generation)
+│   ├── auditor/              # Deep site audit engine (Perf, A11y, SEO)
+│   ├── drivers/              # Automation drivers (Playwright & Appium)
+│   ├── engine/               # Smart multi-strategy element selector
+│   ├── recorder/             # Live browser recording logic
+│   ├── runner/               # Test execution orchestrator & reporter
+│   ├── scanner/              # CSS selector auto-detection
+│   ├── suggester/            # Smart test flow suggestion engine
+│   └── types/                # Shared TypeScript definitions
+│
+├── lib/                      # Shared Library Code
+│   └── supabase.js           # Secure Supabase client configuration
+│
+├── data/                     # Persistent Local Data Storage
+│   └── .gitkeep              # Preserves structure (Git-ignored content)
+│
+├── reports/                  # Generated Test Assets
+│   └── .gitkeep              # Stores HTML reports, screenshots (Git-ignored content)
+│
+├── .dockerignore             # Optimized build settings for Docker
+├── .gitignore                # Security rules (protects data, reports, and .env files)
+├── docker-compose.yml        # Orchestration for multi-container deployment
+├── package.json              # Monorepo/Workspace dependencies & setup scripts
+└── README.md                 # Project documentation
+
 ```
 
 ---
@@ -298,7 +297,6 @@ ai-test-tool/
 | `reports/history.json` | All test run results |
 | `reports/recordings.json` | Saved recordings with steps |
 | `reports/suggestions.json` | Saved smart test suggestions |
-| `reports/selectors.json` | Auto-detected site selectors |
 | `reports/screenshots/` | Per-step screenshots |
 | `reports/report-*.html` | Downloadable HTML reports |
 | `data/audits.json` | Deep site audit results |
@@ -323,14 +321,3 @@ ai-test-tool/
 | Frontend (Vite) | `5173` |
 
 ---
-
-## Mobile Testing Setup
-
-Mobile requires Appium (web testing works out of the box):
-
-```bash
-npm install -g appium
-appium driver install uiautomator2   # Android
-appium driver install xcuitest       # iOS
-appium                               # starts on port 4723
-```
