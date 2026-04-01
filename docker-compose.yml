@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # --- Backend Service ---
+  backend:
+    build:
+      context: .
+      dockerfile: server/Dockerfile.dev
+    ports:
+      - "3001:3001"
+    env_file:
+      - server/.env
+    volumes:
+      # Mount the whole server directory for hot-reloading
+      - ./server:/app
+      # Mount the source logic used by the server
+      - ./src:/src
+      # Mount the local data folder so recordings persist on your computer
+      - ./data:/app/data
+      # Prevent Docker from overwriting the internal node_modules
+      - /app/node_modules
+    # Ensure Playwright doesn't run with headless mode if its not intended
+    environment:
+      - NODE_ENV=development
+
+  # --- Frontend Service ---
+  frontend:
+    build:
+      context: .
+      dockerfile: client/Dockerfile.dev
+    ports:
+      - "5173:5173"
+    env_file:
+      - client/.env
+    volumes:
+      # Mount the whole client directory for hot-reloading
+      - ./client:/app
+      # Mount the lib/ common directory used for Supabase config
+      - ./lib:/lib
+      # Prevent Docker from overwriting the internal node_modules
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - backend

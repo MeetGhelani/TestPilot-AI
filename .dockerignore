@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*
+**/.env
+**/.env.local
+**/.env.*
+
+# Application Data & Reports
+data/
+reports/
+
+# Build Outputs
+dist/
+**/dist/
+build/
+**/build/
+
+# IDE & Misc
+.vscode/
+.idea/
+.DS_Store
+*.log
+.git/
+.gitignore
+Dockerfile
+docker-compose.yml

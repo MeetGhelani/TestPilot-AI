@@ -1,0 +1,21 @@
+# Use the Playwright-ready image that includes all browser dependencies
+FROM mcr.microsoft.com/playwright:v1.44.0-jammy
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy only package files to install dependencies (helps with layer caching)
+COPY package.json package-lock.json ./
+
+# Install dependencies
+RUN npm install --legacy-peer-deps
+
+# In development, we don't COPY the source code here. 
+# Instead, the docker-compose.yml will "mount" your local code as a volume.
+# This is what enables hot-reloading!
+
+# Expose the backend port
+EXPOSE 3001
+
+# Start the server with ts-node
+CMD ["npm", "run", "dev"]

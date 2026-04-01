@@ -1,0 +1,19 @@
+# Use a stable, slim version of Node.js
+FROM node:18-bullseye-slim
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy only package files to install dependencies
+COPY package.json package-lock.json ./
+
+# Install dependencies
+RUN npm install --legacy-peer-deps
+
+# We rely on Docker volumes to provide the source code and enable hot-reloading.
+
+# Expose the Vite port
+EXPOSE 5173
+
+# Start Vite and ensure it listens on 0.0.0.0 so we can access it outside Docker
+CMD ["npm", "run", "dev", "--", "--host"]

@@ -5,7 +5,7 @@ No coding required — describe tests in plain English, record interactions, or 
 
 ---
 
-## Quick Start
+## Quick Start (Manual)
 
 ```bash
 # 1. Install ALL dependencies (root, client, and server)
@@ -20,6 +20,37 @@ npx playwright install chromium
 # 3. Access UI
 # http://localhost:5173
 ```
+
+---
+
+## 🐋 Running with Docker (Recommended)
+
+Dockerization allows you to run the entire stack (Frontend + Backend + Playwright) with one command, ensuring all dependencies (like Linux browser binaries) are perfectly configured.
+
+### 1. Install Docker
+- **Windows/Mac**: Download and install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+- **Linux**: Install `docker` and `docker-compose`.
+
+### 2. Environment Setup
+Create the required secrets files (if you haven't already):
+```bash
+# Frontend
+cp client/.env.example client/.env
+
+# Backend
+cp server/.env.example server/.env
+```
+*Note: Open the `.env` files and enter your Supabase and Email credentials.*
+
+### 3. Build & Start
+Run the following command at the root of the project:
+```bash
+docker compose up --build
+```
+
+### 4. Access UI
+- **Frontend**: `http://localhost:5173`
+- **Backend API**: `http://localhost:3001`
 
 ---
 

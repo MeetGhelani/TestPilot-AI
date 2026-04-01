@@ -13,12 +13,12 @@ const BlogPage: React.FC<{ onSwitchTab: (tab: string) => void }> = ({ onSwitchTa
   };
 
   const posts = [
-    { title: 'The Future of AI-Driven QA Enginering', date: 'March 28, 2026', readTime: '5 min read', category: 'Engineering' },
-    { title: 'Designing for Trust: Our New UI/UX Standards', date: 'March 22, 2026', readTime: '8 min read', category: 'Design' },
-    { title: 'Optimizing LCP for Single Page Applications', date: 'March 15, 2026', readTime: '12 min read', category: 'Performance' },
-    { title: 'How TestPilot AI Speeds Up Your Release Cycle', date: 'March 08, 2026', readTime: '6 min read', category: 'Product' },
-    { title: 'Case Study: From 40% to 98% Test Coverage', date: 'March 02, 2026', readTime: '10 min read', category: 'Case Study' },
-    { title: 'Why Web Accessibility (A11y) Matters More Than Ever', date: 'Feb 26, 2026', readTime: '7 min read', category: 'A11y' },
+    { title: 'The Future of AI-Driven QA Enginering', date: 'March 28, 2026', readTime: '5 min read', category: 'Engineering', image: '/blog/blog1.png' },
+    { title: 'Designing for Trust: Our New UI/UX Standards', date: 'March 22, 2026', readTime: '8 min read', category: 'Design', image: '/blog/blog2.png' },
+    { title: 'Optimizing LCP for Single Page Applications', date: 'March 15, 2026', readTime: '12 min read', category: 'Performance', image: '/blog/blog3.png' },
+    { title: 'How TestPilot AI Speeds Up Your Release Cycle', date: 'March 08, 2026', readTime: '6 min read', category: 'Product', image: '/blog/blog4.png' },
+    { title: 'Case Study: From 40% to 98% Test Coverage', date: 'March 02, 2026', readTime: '10 min read', category: 'Case Study', image: '/blog/blog5.png' },
+    { title: 'Why Web Accessibility (A11y) Matters More Than Ever', date: 'Feb 26, 2026', readTime: '7 min read', category: 'A11y', image: '/blog/blog6.png' },
   ];
 
   return (
@@ -55,7 +55,13 @@ const BlogPage: React.FC<{ onSwitchTab: (tab: string) => void }> = ({ onSwitchTa
               </div>
             </div>
             <div style={{ flex: 0.8, background: '#080C09', position: 'relative' }}>
-              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', opacity: 0.1, fontSize: 160 }}>📰</div>
+              <img 
+                src="/blog/featured.png" 
+                alt="Featured Post" 
+                style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }}
+                onError={(e) => { e.currentTarget.style.display = 'none' }}
+              />
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', opacity: 0.05, fontSize: 160 }}>📰</div>
             </div>
           </div>
         </section>
@@ -65,6 +71,12 @@ const BlogPage: React.FC<{ onSwitchTab: (tab: string) => void }> = ({ onSwitchTa
           {posts.map((post, i) => (
             <article key={i} style={{ cursor: 'pointer' }} className="blog-item">
               <div style={{ width: '100%', aspectRatio: '16/9', background: theme.surface, borderRadius: 24, border: `1px solid ${theme.border}`, marginBottom: 24, position: 'relative', overflow: 'hidden' }}>
+                <img 
+                  src={post.image} 
+                  alt={post.title} 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s' }}
+                  className="post-image"
+                />
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(45deg, rgba(255,255,255,0.02), transparent)' }} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
