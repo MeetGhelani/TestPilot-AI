@@ -1,5 +1,32 @@
-node_modules/ 
-dist/ 
-reports/ 
-client/node_modules/ 
-client/dist/ 
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*
+**/.env
+**/.env.local
+**/.env.*
+
+# Application Data & Reports
+# (Keeps the folder structure in Git but ignores all content)
+data/
+data/*
+!data/.gitkeep
+reports/
+reports/*
+!reports/.gitkeep
+
+# Build Outputs
+dist/
+**/dist/
+build/
+**/build/
+
+# IDE & Misc
+.vscode/
+.idea/
+.DS_Store
+*.log

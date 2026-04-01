@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import Footer from './Footer';
 
 const ContactPage: React.FC<{ onSwitchTab: (tab: string) => void }> = ({ onSwitchTab }) => {
-  const [formState, setFormState] = useState({ name: '', email: '', subject: '', message: '' });
+  const [formState, setFormState] = useState({ name: '', email: '', subject: 'General Inquiry', message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSent, setIsSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const theme = {
     bg: '#0B0F0C',
@@ -16,14 +17,29 @@ const ContactPage: React.FC<{ onSwitchTab: (tab: string) => void }> = ({ onSwitc
     glass: 'rgba(255, 255, 255, 0.03)',
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setTimeout(() => {
+    setError(null);
+    try {
+      const response = await fetch('http://localhost:3001/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formState),
+      });
+
+      if (response.ok) {
+        setIsSent(true);
+        setFormState({ name: '', email: '', subject: 'General Inquiry', message: '' });
+      } else {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to send message');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+    } finally {
       setIsSubmitting(false);
-      setIsSent(true);
-      setFormState({ name: '', email: '', subject: '', message: '' });
-    }, 1500);
+    }
   };
 
   return (
@@ -87,19 +103,46 @@ const ContactPage: React.FC<{ onSwitchTab: (tab: string) => void }> = ({ onSwitc
               </div>
             )}
 
+            {error && (
+              <div style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '12px', borderRadius: 12, marginBottom: 24, fontSize: 14, border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                {error}
+              </div>
+            )}
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginBottom: 24 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: theme.textMuted, marginBottom: 8, letterSpacing: 1 }}>NAME</label>
-                <input required type="text" placeholder="Your name" style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: `1px solid ${theme.border}`, padding: '14px 16px', borderRadius: 12, color: theme.text, outline: 'none' }} className="contact-input" />
+                <input 
+                  required 
+                  type="text" 
+                  placeholder="Your name" 
+                  value={formState.name}
+                  onChange={e => setFormState({ ...formState, name: e.target.value })}
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: `1px solid ${theme.border}`, padding: '14px 16px', borderRadius: 12, color: theme.text, outline: 'none' }} 
+                  className="contact-input" 
+                />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: theme.textMuted, marginBottom: 8, letterSpacing: 1 }}>EMAIL ADDRESS</label>
-                <input required type="email" placeholder="email@company.com" style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: `1px solid ${theme.border}`, padding: '14px 16px', borderRadius: 12, color: theme.text, outline: 'none' }} className="contact-input" />
+                <input 
+                  required 
+                  type="email" 
+                  placeholder="email@company.com" 
+                  value={formState.email}
+                  onChange={e => setFormState({ ...formState, email: e.target.value })}
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: `1px solid ${theme.border}`, padding: '14px 16px', borderRadius: 12, color: theme.text, outline: 'none' }} 
+                  className="contact-input" 
+                />
               </div>
             </div>
             <div style={{ marginBottom: 24 }}>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: theme.textMuted, marginBottom: 8, letterSpacing: 1 }}>SUBJECT</label>
-              <select style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: `1px solid ${theme.border}`, padding: '14px 16px', borderRadius: 12, color: theme.text, outline: 'none' }} className="contact-input">
+              <select 
+                value={formState.subject}
+                onChange={e => setFormState({ ...formState, subject: e.target.value })}
+                style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: `1px solid ${theme.border}`, padding: '14px 16px', borderRadius: 12, color: theme.text, outline: 'none' }} 
+                className="contact-input"
+              >
                 <option style={{ background: '#0e1110ff' }}>General Inquiry</option>
                 <option style={{ background: '#0e1110ff' }}>Enterprise Plans</option>
                 <option style={{ background: '#0e1110ff' }}>Technical Support</option>
@@ -108,7 +151,15 @@ const ContactPage: React.FC<{ onSwitchTab: (tab: string) => void }> = ({ onSwitc
             </div>
             <div style={{ marginBottom: 32 }}>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: theme.textMuted, marginBottom: 8, letterSpacing: 1 }}>MESSAGE</label>
-              <textarea required rows={5} placeholder="Tell us what you're building..." style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: `1px solid ${theme.border}`, padding: '14px 16px', borderRadius: 12, color: theme.text, outline: 'none', resize: 'none' }} className="contact-input" />
+              <textarea 
+                required 
+                rows={5} 
+                placeholder="Tell us what you're building..." 
+                value={formState.message}
+                onChange={e => setFormState({ ...formState, message: e.target.value })}
+                style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: `1px solid ${theme.border}`, padding: '14px 16px', borderRadius: 12, color: theme.text, outline: 'none', resize: 'none' }} 
+                className="contact-input"
+              />
             </div>
             <button 
               type="submit" 

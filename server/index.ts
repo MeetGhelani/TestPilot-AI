@@ -3,6 +3,10 @@ import express from 'express';
 import cors from 'cors';
 import * as fs from 'fs';
 import * as path from 'path';
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 import { generateTestPlan } from '../src/ai/testGenerator';
 import { runTest, getLiveReplayState, abortReplay } from '../src/runner/testRunner';
@@ -699,6 +703,48 @@ app.post('/api/recordings/:id/update', (req, res) => {
   );
   fs.writeFileSync(recordingsFile, JSON.stringify(all, null, 2));
   res.json({ ok: true });
+});
+
+app.post('/api/contact', async (req, res) => {
+  const { name, email, subject, message } = req.body;
+  
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: 'Name, email and message are required' });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: process.env.EMAIL_SERVICE || 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_DESTINATION || 'support@testpilot.ai',
+      subject: `[Contact Form] ${subject || 'New Inquiry'} from ${name}`,
+      text: `
+        New message from the TestPilot AI contact form:
+        
+        Name: ${name}
+        Email: ${email}
+        Subject: ${subject}
+        
+        Message:
+        ${message}
+      `,
+      replyTo: email
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent: ' + info.response);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Email Error:', err);
+    res.status(500).json({ error: 'Failed to send email. Please try again later.' });
+  }
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
