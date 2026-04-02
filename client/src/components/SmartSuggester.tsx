@@ -330,7 +330,7 @@ export default function SmartSuggester({ onBusyChange, switchTab, setHighlightId
         </div>
 
         <button onClick={handleScan} disabled={scanning || !url.trim() || running}
-          style={{ padding: '11px 0', background: scanning ? 'var(--surface2)' : 'var(--accent)', border: 'none', borderRadius: 10, color: scanning ? 'var(--text3)' : '#0f0f0f', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, cursor: scanning ? 'not-allowed' : 'pointer', letterSpacing: 1 }}>
+          style={{ padding: '11px 0', background: (scanning || !url.trim() || running) ? 'var(--surface2)' : 'var(--accent)', border: 'none', borderRadius: 10, color: (scanning || !url.trim() || running) ? 'var(--text3)' : '#0f0f0f', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, cursor: (scanning || !url.trim() || running) ? 'not-allowed' : 'pointer', letterSpacing: 1 }}>
           {scanning ? '⟳ SCANNING...' : '⌕ SCAN & SUGGEST'}
         </button>
 

@@ -28,6 +28,7 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
   const [showPassword, setShowPassword] = useState(false)
   const [title, setTitle] = useState('')
   const [isRecording, setIsRecording] = useState(false)
+  const [isStarting, setIsStarting] = useState(false)
   const [liveSteps, setLiveSteps] = useState<Step[]>([])
   const [recordings, setRecordings] = useState<RecordedTest[]>([])
   // Toast state
@@ -83,7 +84,7 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
 
   const handleStart = async () => {
     if (!url.trim()) return
-    setError(null); setMessage(null); setLiveSteps([]); setReplayResult(null)
+    setError(null); setMessage(null); setLiveSteps([]); setReplayResult(null); setIsStarting(true)
     try {
       const res = await fetch('http://localhost:3001/api/record/start', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -93,7 +94,11 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
       if (data.error) throw new Error(data.error)
       setIsRecording(true); onBusyChange?.(true)
       setMessage('Browser opened — use your site. Steps appear here instantly.')
-    } catch (err) { setError(err instanceof Error ? err.message : String(err)) }
+    } catch (err) { 
+      setError(err instanceof Error ? err.message : String(err)) 
+    } finally {
+      setIsStarting(false)
+    }
   }
 
   const handleStop = async () => {
@@ -270,8 +275,16 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
         </div>
 
         {!isRecording ? (
-          <button onClick={handleStart} disabled={!url.trim()} style={{ padding: '12px 0', background: url.trim() ? 'var(--accent)' : 'var(--surface2)', border: 'none', borderRadius: 10, color: url.trim() ? '#0f0f0f' : 'var(--text3)', fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500, cursor: url.trim() ? 'pointer' : 'not-allowed', letterSpacing: 1 }}>
-            ● START RECORDING
+          <button onClick={handleStart} disabled={!url.trim() || isStarting} style={{ padding: '12px 0', background: url.trim() && !isStarting ? 'var(--accent)' : 'var(--surface2)', border: 'none', borderRadius: 10, color: url.trim() && !isStarting ? '#0f0f0f' : 'var(--text3)', fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500, cursor: url.trim() && !isStarting ? 'pointer' : 'not-allowed', letterSpacing: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+            {isStarting ? (
+              <>
+                <div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.2)', borderTop: '2px solid var(--text3)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                <span>STARTING...</span>
+                <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+              </>
+            ) : (
+              '● START RECORDING'
+            )}
           </button>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -297,7 +310,7 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
 
         {/* Global Toast Notification */}
         {showReplayToast && (
-          <div style={{ padding: '10px 14px', background: 'var(--pass-glow)', border: '1px solid var(--pass)', borderRadius: 10, display: 'flex', gap: 12, alignItems: 'center', animation: 'fadeInDown 0.3s ease-out', position: 'relative' }}>
+          <div style={{ padding: '10px 14px',boxShadow: '0px 0px 5px var(--pass)', background: 'var(--border)', border: '1px solid var(--pass)', borderRadius: 10, display: 'flex', gap: 12, alignItems: 'center', animation: 'fadeInDown 0.3s ease-out', position: 'relative' }}>
             <span style={{ fontSize: 14 }}>✅</span>
             <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500, flex: 1 }}>
               Replay complete! Check the <span 
@@ -308,11 +321,11 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
                   }
                 }}
                 style={{ fontFamily: 'var(--font-mono)', borderBottom: '1px solid var(--pass)', cursor: 'pointer', color: 'var(--pass)' }}
-              >Result Panel</span> below for details and screenshots.
+              >Result Panel</span> for details and screenshots.
             </div>
             <button 
               onClick={() => setShowReplayToast(false)}
-              style={{ background: 'transparent', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 14, padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              style={{ background: 'var(--border)', border: '1px solid var(--fail)',borderRadius: "5px", color: 'var(--fail)', cursor: 'pointer', fontSize: 14, padding: '4px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               title="Dismiss"
             >✕</button>
           </div>

@@ -37,6 +37,18 @@ export default function AuthPage({ onLogin, onClose, initialMode = 'login' }: Au
     setSuccess(null);
 
     try {
+      if (mode === 'signup' || mode === 'update_password') {
+        const hasLetter = /[a-zA-Z]/.test(password);
+        const hasNumber = /\d/.test(password);
+        const hasSpecial = /[^a-zA-Z0-9]/.test(password);
+        
+        if (!hasLetter || !hasNumber || !hasSpecial) {
+          setError('Password must contain at least one letter, one number, and one special character.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
       if (mode === 'signup') {
         console.log('Attempting Sign Up with Supabase...');
         const { data, error: signUpError } = await supabase.auth.signUp({
@@ -54,6 +66,12 @@ export default function AuthPage({ onLogin, onClose, initialMode = 'login' }: Au
         if (signUpError) throw signUpError;
         
         if (data.user) {
+          if (data.user.identities && data.user.identities.length === 0) {
+            setError('An account with this email already exists.');
+            setIsLoading(false);
+            return;
+          }
+
           if (data.session) {
             console.log('Session created, calling onLogin()...');
             onLogin();
@@ -296,6 +314,7 @@ export default function AuthPage({ onLogin, onClose, initialMode = 'login' }: Au
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                   </div>
                   <input 
+                    id="name"
                     type="text" 
                     value={name}
                     onChange={e => setName(e.target.value)}
@@ -325,6 +344,7 @@ export default function AuthPage({ onLogin, onClose, initialMode = 'login' }: Au
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
                   </div>
                   <input 
+                    id="email"
                     type="email" 
                     autoFocus
                     value={email}
@@ -369,6 +389,7 @@ export default function AuthPage({ onLogin, onClose, initialMode = 'login' }: Au
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                   </div>
                   <input 
+                    id="password"
                     type={showPassword ? "text" : "password"} 
                     value={password}
                     onChange={e => setPassword(e.target.value)}
@@ -409,6 +430,7 @@ export default function AuthPage({ onLogin, onClose, initialMode = 'login' }: Au
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                   </div>
                   <input 
+                    id="confirmPassword"
                     type={showPassword ? "text" : "password"} 
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
@@ -432,6 +454,7 @@ export default function AuthPage({ onLogin, onClose, initialMode = 'login' }: Au
 
             <button 
               type="submit"
+              id="submitBtn"
               disabled={isLoading}
               style={{ 
                 width: '100%', padding: '14px', borderRadius: 14, 
