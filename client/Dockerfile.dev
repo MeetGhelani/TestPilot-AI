@@ -5,7 +5,7 @@ FROM node:18-bullseye-slim
 WORKDIR /app
 
 # Copy only package files to install dependencies
-COPY package.json package-lock.json ./
+COPY client/package.json client/package-lock.json ./
 
 # Install dependencies
 RUN npm install --legacy-peer-deps
