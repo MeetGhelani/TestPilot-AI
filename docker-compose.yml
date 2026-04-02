@@ -13,6 +13,8 @@ services:
     volumes:
       # Mount the whole server directory for hot-reloading
       - ./server:/app
+      # Mount the project tsconfig.json so ts-node uses correct lib targets
+      - ./tsconfig.json:/app/tsconfig.json
       # Mount the source logic used by the server
       - ./src:/src
       # Mount the local data folder so recordings persist on your computer
@@ -22,6 +24,8 @@ services:
     # Ensure Playwright doesn't run with headless mode if its not intended
     environment:
       - NODE_ENV=development
+      # Tell Node to look here for modules since /src is outside of /app 
+      - NODE_PATH=/app/node_modules
 
   # --- Frontend Service ---
   frontend:
@@ -34,12 +38,14 @@ services:
       - client/.env
     volumes:
       # Mount the whole client directory for hot-reloading
-      - ./client:/app
+      - ./client:/usr/src/client
       # Mount the lib/ common directory used for Supabase config
-      - ./lib:/lib
+      - ./lib:/usr/src/lib
       # Prevent Docker from overwriting the internal node_modules
-      - /app/node_modules
+      - /usr/src/client/node_modules
     environment:
       - NODE_ENV=development
+    # Bypass the buggy node image entrypoint script entirely
+    entrypoint: [ "npm", "run", "dev", "--", "--host" ]
     depends_on:
       - backend
