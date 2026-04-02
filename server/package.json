@@ -5,7 +5,9 @@
   "main": "index.ts",
   "scripts": {
     "start": "ts-node index.ts",
-    "dev": "ts-node index.ts"
+    "dev": "ts-node index.ts",
+    "build": "tsc",
+    "server": "node dist/server/index.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",

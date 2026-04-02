@@ -9,7 +9,7 @@
     "build": "tsc",
     "install-client": "npm install --prefix client --legacy-peer-deps",
     "install-server": "npm install --prefix server --legacy-peer-deps",
-    "install-all": "npm install --legacy-peer-deps && npm run install-client && npm run install-server",
+    "install-all": "npm install --legacy-peer-deps && npm run install-client && npm run install-server && npx playwright install chromium",
     "setup": "npm run install-all && npm run dev"
   },
   "dependencies": {
@@ -38,3 +38,4 @@
     "esm": false
   }
 }
+  
