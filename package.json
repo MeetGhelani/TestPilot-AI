@@ -22,7 +22,7 @@
     "cors": "^2.8.6",
     "express": "^4.22.1",
     "ora": "^8.0.1",
-    "playwright": "^1.44.0",
+    "playwright": "^1.58.2",
     "webdriverio": "^9.26.1"
   },
   "devDependencies": {
