@@ -31,6 +31,16 @@ const Globe: React.FC = () => {
 
         const RADIUS = 100;
 
+        // Invisible occluder to block the back half of the globe from showing through
+        // (This prevents the optical illusion of the globe suddenly spinning backward)
+        const occluderGeo = new THREE.SphereGeometry(RADIUS * 0.99, 64, 64);
+        const occluderMat = new THREE.MeshBasicMaterial({ 
+            colorWrite: false, 
+            depthWrite: true 
+        });
+        const occluderMesh = new THREE.Mesh(occluderGeo, occluderMat);
+        globeGroup.add(occluderMesh);
+
         // Base wireframe sphere to give the "digital grid" look
         const sphereGeo = new THREE.SphereGeometry(RADIUS, 64, 64);
         const sphereMat = new THREE.MeshPhongMaterial({
@@ -113,7 +123,7 @@ const Globe: React.FC = () => {
             transparent: true,
             opacity: 0.9
         });
-        const highlightGeo = new THREE.SphereGeometry(1.5, 16, 16);
+        const highlightGeo = new THREE.SphereGeometry(1.5, 20, 20);
         
         // Track the meshes to animate them later
         const pointMeshes: { mesh: THREE.Mesh, offset: number }[] = [];
@@ -160,6 +170,74 @@ const Globe: React.FC = () => {
         });
 
         // ==========================================
+        // 4.6 Arcs/Links Between Points
+        // ==========================================
+        const linkMat = new THREE.LineBasicMaterial({
+            color: 0xc8f056,
+            transparent: true,
+            opacity: 0.15 // Base static line is faint
+        });
+
+        // The bright traveling comet tail
+        const laserMat = new THREE.LineBasicMaterial({
+            color: 0xc8f056,
+            transparent: true,
+            opacity: 0.95
+        });
+
+        // Keep track of arc laser geometries to animate
+        const arcLasers: { line: THREE.Line, maxDots: number, offset: number, speed: number }[] = [];
+
+        const numArcs = 25;
+        for (let i = 0; i < numArcs; i++) {
+            // Pick two random unique points
+            const startIdx = Math.floor(Math.random() * pointMeshes.length);
+            let endIdx = Math.floor(Math.random() * pointMeshes.length);
+            while (endIdx === startIdx) {
+                endIdx = Math.floor(Math.random() * pointMeshes.length);
+            }
+
+            const p1 = pointMeshes[startIdx].mesh.position.clone();
+            const p2 = pointMeshes[endIdx].mesh.position.clone();
+
+            const pointsCount = 40; // denser geometry for smoother arcs
+            const arcPoints: THREE.Vector3[] = [];
+            const distance = p1.distanceTo(p2);
+            
+            // Reduced peak height depending on distance so it hugs the surface tighter
+            const peakHeight = distance * 0.07; 
+            
+            for (let j = 0; j <= pointsCount; j++) {
+                const t = j / pointsCount;
+                // Linear interpolation inside the sphere
+                const lerped = new THREE.Vector3().copy(p1).lerp(p2, t);
+                // Normalize pushes it precisely onto the unit sphere surface
+                lerped.normalize();
+                // Sine wave height modifier forms the arc overhead
+                const currentHeight = RADIUS * 1.02 + Math.sin(t * Math.PI) * peakHeight;
+                lerped.multiplyScalar(currentHeight);
+                arcPoints.push(lerped);
+            }
+            
+            const arcGeo = new THREE.BufferGeometry().setFromPoints(arcPoints);
+            const arcLine = new THREE.Line(arcGeo, linkMat);
+            globeGroup.add(arcLine);
+
+            // Clone geometry for the bright moving laser
+            const laserGeo = arcGeo.clone();
+            laserGeo.setDrawRange(0, 0); // Hide initially
+            const laserLine = new THREE.Line(laserGeo, laserMat);
+            globeGroup.add(laserLine);
+
+            arcLasers.push({
+                line: laserLine,
+                maxDots: pointsCount + 1,
+                offset: -Math.floor(Math.random() * pointsCount), // Random start phase
+                speed: 0.15 + Math.random() * 0.3 // Random velocity
+            });
+        }
+
+        // ==========================================
         // 5. Controls & Interaction
         // ==========================================
         const controls = new OrbitControls(camera, renderer.domElement);
@@ -190,6 +268,29 @@ const Globe: React.FC = () => {
                 // scale pulses between ~0.3 and ~1.2
                 const scale = 0.75 + Math.sin(time + data.offset) * 0.45;
                 data.mesh.scale.setScalar(scale);
+            });
+
+            // Animate laser tails bridging the arcs
+            arcLasers.forEach(laser => {
+                laser.offset += laser.speed;
+                // If it passes the end perfectly, restart from varying negative offset
+                if (laser.offset > laser.maxDots * 1.5) {
+                    laser.offset = -10 - Math.random() * 20; 
+                    laser.speed = 0.15 + Math.random() * 0.3; 
+                }
+                
+                const tailLength = Math.max(4, Math.floor(laser.maxDots * 0.25));
+                const start = Math.floor(laser.offset);
+                
+                const drawStart = Math.max(0, start - tailLength);
+                const drawEnd = Math.min(laser.maxDots, start);
+                const count = drawEnd - drawStart;
+                
+                if (count > 0) {
+                    laser.line.geometry.setDrawRange(drawStart, count);
+                } else {
+                    laser.line.geometry.setDrawRange(0, 0);
+                }
             });
 
             // Auto rotation that pauses during user interaction

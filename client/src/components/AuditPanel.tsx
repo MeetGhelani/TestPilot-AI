@@ -725,7 +725,9 @@ export default function AuditPanel({ onBusyChange, theme }: AuditPanelProps) {
                       setIsEditing(false);
                       setShowComparison(false);
                     }}
-                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--info)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1 }}>
+                    disabled={history.length === 0}
+
+                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--info)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer', letterSpacing: 1 , opacity: history.length === 0 ? 0.3 : 1, pointerEvents: history.length === 0 ? 'none' : 'auto' }}>
                     COMPARE
                   </button>
                   <button

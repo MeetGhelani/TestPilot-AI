@@ -373,7 +373,7 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', animation: 'recpulse 1s ease-in-out infinite' }} />
                 <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>REPLAYING — step {replayProgress.currentStep}/{replayProgress.totalSteps}</span>
               </div>
-              <button onClick={handleAbort} style={{ padding: '4px 12px', background: 'var(--fail-glow)', border: '1px solid var(--fail-border)', borderRadius: 6, color: 'var(--fail)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>■ STOP</button>
+              <button onClick={handleAbort} style={{ padding: '4px 12px', background: 'var(--fail-glow)', border: '1px solid var(--fail)', borderRadius: 6, color: 'var(--fail)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>■ STOP</button>
             </div>
             <div style={{ height: 3, background: 'var(--border)' }}>
               <div style={{ height: '100%', background: 'var(--accent)', width: `${(replayProgress.currentStep / replayProgress.totalSteps) * 100}%`, transition: 'width 0.4s' }} />
@@ -450,7 +450,7 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
                     {/* Buttons */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
                       {replaying === rec.id ? (
-                        <button onClick={handleAbort} style={{ padding: '7px 14px', background: 'var(--fail-glow)', border: '1px solid var(--fail-border)', borderRadius: 6, color: 'var(--fail)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>■ STOP</button>
+                        <button onClick={handleAbort} style={{ padding: '7px 14px', background: 'var(--fail-glow)', border: '1px solid var(--fail)', borderRadius: 6, color: 'var(--fail)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>■ STOP</button>
                       ) : (
                         <button onClick={() => handleReplay(rec.id)} disabled={!!replaying || isRecording || editingRecId === rec.id}
                           style={{ padding: '7px 14px', background: 'var(--accent)', border: 'none', borderRadius: 6, color: '#0f0f0f', fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, cursor: (replaying || isRecording || editingRecId === rec.id) ? 'not-allowed' : 'pointer', opacity: ((replaying && replaying !== rec.id) || editingRecId === rec.id) ? 0.4 : 1, whiteSpace: 'nowrap' }}>
@@ -470,7 +470,7 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
                         {editingRecId === rec.id ? 'CLOSE' : '✎ EDIT'}
                       </button>
                       <button onClick={() => handleDelete(rec.id)} disabled={isRecording}
-                        style={{ padding: '7px 14px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text3)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>
+                        style={{ padding: '7px 14px', background: 'transparent', border: '1px solid var(--fail)', borderRadius: 6, color: 'var(--fail)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>
                         DELETE
                       </button>
                     </div>
