@@ -272,13 +272,6 @@ export default function SmartSuggester({ onBusyChange, switchTab, setHighlightId
           <p style={{ color: 'var(--text2)', fontSize: 12, marginTop: 6 }}>Scans your site — tells you exactly what to test.</p>
         </div>
 
-        {/* Site name */}
-        <div>
-          <label style={lbl}>Site name</label>
-          <input style={inp} placeholder="e.g. Demo, My Shop..." value={siteName} onChange={e => setSiteName(e.target.value)} disabled={scanning} />
-          <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Optional — helps identify saved scans</p>
-        </div>
-
         <div>
           <label style={lbl}>Site URL</label>
           <input style={inp} placeholder="https://yoursite.com" value={url} onChange={e => setUrl(e.target.value)} disabled={scanning} />
@@ -328,6 +321,15 @@ export default function SmartSuggester({ onBusyChange, switchTab, setHighlightId
             </div>
           )}
         </div>
+
+        {/* Site name */}
+        <div>
+          <label style={lbl}>Site name</label>
+          <input style={inp} placeholder="e.g. Demo, My Shop..." value={siteName} onChange={e => setSiteName(e.target.value)} disabled={scanning} />
+          <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Optional — helps identify saved scans</p>
+        </div>
+
+        
 
         <button onClick={handleScan} disabled={scanning || !url.trim() || running}
           style={{ padding: '11px 0', background: (scanning || !url.trim() || running) ? 'var(--surface2)' : 'var(--accent)', border: 'none', borderRadius: 10, color: (scanning || !url.trim() || running) ? 'var(--text3)' : '#0f0f0f', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, cursor: (scanning || !url.trim() || running) ? 'not-allowed' : 'pointer', letterSpacing: 1 }}>

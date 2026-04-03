@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Footer from './Footer';
+import Globe from './Globe';
 
 export default function LandingPage({ onGetStarted, onGoToApp, onSwitchTab }: { onGetStarted: () => void, onGoToApp: () => void, onSwitchTab: (tab: string) => void }) {
   const { session, isLoading: isSessionLoading } = useAuth();
@@ -1020,6 +1021,44 @@ export default function LandingPage({ onGetStarted, onGoToApp, onSwitchTab }: { 
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* 3D GLOBE SECTION */}
+      <section className="mobile-col mobile-py-4" style={{ height: '50vh', minHeight: 600, width: '100vw', position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px', overflow: 'hidden' }}>
+        <div className="mobile-col" style={{ maxWidth: 1200, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 60, position: 'relative', zIndex: 10 }}>
+          
+          {/* TEXT SIDE */}
+          <div style={{ flex: 1, minWidth: 300, textAlign: 'left' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 100, border: `1px solid rgba(200, 240, 105, 0.2)`, background: 'rgba(200, 240, 105, 0.05)', color: theme.accent, fontSize: 12, fontWeight: 800, marginBottom: 24, letterSpacing: 1.5 }}>
+              INFRASTRUCTURE
+            </div>
+            <h2 style={{ fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 800, margin: '0 0 24px 0', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+              Global Test <br className="mobile-hide" />
+              <span style={{ color: theme.accent }}>Network</span>
+            </h2>
+            <p style={{ color: theme.textMuted, fontSize: 18, maxWidth: 500, margin: '0 0 40px 0', lineHeight: 1.6 }}>
+              Execute end-to-end user flows and audit your core vitals simultaneously from distributed data centers around the world, securing ultimate reliability.
+            </p>
+            
+            <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span style={{ color: theme.accent, fontSize: 40, fontWeight: 900, lineHeight: 1 }}>15+</span>
+                <span style={{ color: theme.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 1.5 }}>SERVER HUBS</span>
+              </div>
+              <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.1)' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span style={{ color: theme.accent, fontSize: 40, fontWeight: 900, lineHeight: 1 }}>&lt;50ms</span>
+                <span style={{ color: theme.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 1.5 }}>GLOBAL PING</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* GLOBE SIDE */}
+          <div className="globe-container" style={{ flex: 1.2, minWidth: 320, height: '70vh', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Globe />
+          </div>
+          
         </div>
       </section>
 
