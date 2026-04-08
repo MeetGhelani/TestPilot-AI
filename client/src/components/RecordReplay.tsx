@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { TestResult } from '../App'
 import StepEditor, { EditableStep } from './StepEditor'
+import { generatePlaywrightCode } from '../utils/exportUtils'
 
 interface Step { 
   action: string; 
@@ -41,6 +42,9 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
   const [editedSteps, setEditedSteps] = useState<EditableStep[]>([])
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [exportRecording, setExportRecording] = useState<RecordedTest | null>(null)
+  const [exportLanguage, setExportLanguage] = useState<'typescript' | 'python'>('typescript')
+  const [copySuccess, setCopySuccess] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const replayPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const stepsEndRef = useRef<HTMLDivElement>(null)
@@ -197,6 +201,14 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
     if (!confirmDelete) return
     await fetch(`http://localhost:3001/api/recordings/${confirmDelete}`, { method: 'DELETE' })
     setConfirmDelete(null); fetchRecordings()
+  }
+
+  const handleCopyCode = () => {
+    if (!exportRecording) return
+    const code = generatePlaywrightCode(exportRecording, exportLanguage)
+    navigator.clipboard.writeText(code)
+    setCopySuccess(true)
+    setTimeout(() => setCopySuccess(false), 2000)
   }
 
   const inp: React.CSSProperties = { width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none' }
@@ -469,6 +481,10 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
                         style={{ padding: '7px 14px', background: editingRecId === rec.id ? 'var(--accent-glow)' : 'transparent', border: `1px solid ${editingRecId === rec.id ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 6, color: editingRecId === rec.id ? 'var(--accent)' : 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>
                         {editingRecId === rec.id ? 'CLOSE' : '✎ EDIT'}
                       </button>
+                      <button onClick={() => setExportRecording(rec)}
+                        style={{ padding: '7px 14px', background: 'transparent', border: '1px solid var(--accent)', borderRadius: 6, color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>
+                        EXPORT
+                      </button>
                       <button onClick={() => handleDelete(rec.id)} disabled={isRecording}
                         style={{ padding: '7px 14px', background: 'transparent', border: '1px solid var(--fail)', borderRadius: 6, color: 'var(--fail)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer' }}>
                         DELETE
@@ -514,6 +530,56 @@ export default function RecordReplay({ onBusyChange, switchTab, setHighlightId }
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setConfirmDelete(null)} style={{ flex: 1, padding: '10px 0', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 12, cursor: 'pointer' }}>CANCEL</button>
               <button onClick={confirmDeleteRecording} style={{ flex: 1, padding: '10px 0', background: '#f8717122', border: '1px solid #f8717144', borderRadius: 8, color: 'var(--fail)', fontFamily: 'var(--font-mono)', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}>DELETE</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Modal */}
+      {exportRecording && (
+        <div onClick={() => setExportRecording(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 14, width: '100%', maxWidth: 800, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+            
+            {/* Modal Header */}
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 600 }}>Export to Code</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Standalone Playwright script for "{exportRecording.title}"</div>
+              </div>
+              <button onClick={() => setExportRecording(null)} style={{ background: 'transparent',padding: '2px 7px', border: 'none', color: 'var(--fail)', cursor: 'pointer', fontSize: 20 }}>✕</button>
+            </div>
+
+            {/* Language Selector Tabs */}
+            <div style={{ display: 'flex', background: 'var(--surface2)', padding: '4px' }}>
+              <button 
+                onClick={() => setExportLanguage('typescript')}
+                style={{ flex: 1, padding: '10px', background: exportLanguage === 'typescript' ? 'var(--surface)' : 'transparent', border: 'none', color: exportLanguage === 'typescript' ? 'var(--accent)' : 'var(--text3)', fontSize: 12, fontWeight: 600, cursor: 'pointer', borderRadius: 8, transition: 'all 0.2s' }}>
+                TYPESCRIPT
+              </button>
+              <button 
+                onClick={() => setExportLanguage('python')}
+                style={{ flex: 1, padding: '10px', background: exportLanguage === 'python' ? 'var(--surface)' : 'transparent', border: 'none', color: exportLanguage === 'python' ? 'var(--accent)' : 'var(--text3)', fontSize: 12, fontWeight: 600, cursor: 'pointer', borderRadius: 8, transition: 'all 0.2s' }}>
+                PYTHON
+              </button>
+            </div>
+
+            {/* Code Viewer */}
+            <div style={{ flex: 1, overflow: 'auto', background: '#0d1117', padding: '20px', position: 'relative', borderBottom: '1px solid var(--border)' }}>
+              <pre style={{ margin: 0, color: '#e6edf3', fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre', overflowX: 'auto' }}>
+                <code>{generatePlaywrightCode(exportRecording, exportLanguage)}</code>
+              </pre>
+              
+              <button 
+                onClick={handleCopyCode}
+                style={{ position: 'absolute', top: 16, right: 16, padding: '6px 14px', background: copySuccess ? 'var(--pass)' : 'var(--accent)', border: 'none', borderRadius: 6, color: '#0f0f0f', fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                {copySuccess ? '✓ COPIED' : 'COPY CODE'}
+              </button>
+            </div>
+
+            {/* Tooltip / Note */}
+            <div style={{ padding: '12px 24px', background: 'var(--surface2)', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--text3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>{exportLanguage === 'typescript' ? 'Run with: npx playwright test script.ts' : 'Run with: python script.py'}</span>
+              <span style={{ fontStyle: 'italic' }}>Robust standalone script generated successfully.</span>
             </div>
           </div>
         </div>
