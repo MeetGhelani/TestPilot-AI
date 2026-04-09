@@ -50,9 +50,16 @@ interface ComparisonData {
 interface AuditComparisonProps {
   data: ComparisonData;
   onBack: () => void;
+  theme: 'dark' | 'light';
 }
 
-export default function AuditComparison({ data, onBack }: AuditComparisonProps) {
+export default function AuditComparison({ data, onBack, theme }: AuditComparisonProps) {
+  const isDark = theme === 'dark';
+  const themeColors = {
+    text: isDark ? '#f1f5f9' : '#1e293b',
+    text3: isDark ? '#64748b' : '#94a3b8',
+    border: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+  };
   const { audits, comparisons, summary } = data;
   const latestAudit = audits[audits.length - 1];
   const firstAudit = audits[0];
@@ -84,9 +91,15 @@ export default function AuditComparison({ data, onBack }: AuditComparisonProps) 
       tooltip: {
         mode: 'index' as const,
         intersect: false,
-        backgroundColor: 'rgba(0,0,0,0.8)',
+        backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
+        titleColor: themeColors.text,
+        bodyColor: themeColors.text,
+        borderColor: themeColors.border,
+        borderWidth: 1,
         padding: 12,
-        titleFont: { size: 14 },
+        cornerRadius: 10,
+        displayColors: true,
+        titleFont: { size: 14, weight: 'bold' },
         bodyFont: { size: 13 },
       },
     },
@@ -94,12 +107,12 @@ export default function AuditComparison({ data, onBack }: AuditComparisonProps) 
       y: {
         min: 0,
         max: 100,
-        grid: { color: 'var(--border)' },
-        ticks: { color: 'var(--text3)' },
+        grid: { color: themeColors.border },
+        ticks: { color: themeColors.text3 },
       },
       x: {
         grid: { display: false },
-        ticks: { color: 'var(--text3)' },
+        ticks: { color: themeColors.text3 },
       },
     },
   };
@@ -185,7 +198,7 @@ export default function AuditComparison({ data, onBack }: AuditComparisonProps) 
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 32, animation: 'fadeIn 0.4s ease-out' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 32, animation: 'fadeIn 0.4s ease-out', minWidth: 0 }}>
       
       {/* AI Insight Box */}
       <div style={{ 

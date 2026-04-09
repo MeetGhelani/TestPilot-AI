@@ -679,7 +679,7 @@ export default function AuditPanel({ onBusyChange, theme }: AuditPanelProps) {
 
       {/* Sidebar History */}
       {showHistory && (
-        <div className="mobile-w-full mobile-relative mobile-sidebar-history" style={{ width: '100%', maxWidth: 350, flexShrink: 0, borderRight: '1px solid var(--border)', paddingRight: 20, display: 'flex', flexDirection: 'column', gap: 24, position: 'sticky', top: 112, alignSelf: 'flex-start' }}>
+        <div className="mobile-w-full mobile-relative mobile-sidebar-history" style={{ width: 350, flexShrink: 0, borderRight: '1px solid var(--border)', paddingRight: 20, display: 'flex', flexDirection: 'column', gap: 24, position: 'sticky', top: 112, alignSelf: 'flex-start', minWidth: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
             <h3 style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text1)', textTransform: 'uppercase', letterSpacing: 1.5, margin: 0 }}>Recent Audits</h3>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -886,7 +886,7 @@ export default function AuditPanel({ onBusyChange, theme }: AuditPanelProps) {
         </div>
       )}
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 32 }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 32 }}>
         {/* Search Header */}
         <div style={{ textAlign: 'center', padding: '20px 0', position: 'relative' }}>
           {/* New Left-side History Toggle */}
@@ -1147,7 +1147,7 @@ export default function AuditPanel({ onBusyChange, theme }: AuditPanelProps) {
         )}
 
         {showComparison && comparisonResult && !running && (
-          <AuditComparison data={comparisonResult} onBack={() => {
+          <AuditComparison data={comparisonResult} theme={theme} onBack={() => {
             setShowComparison(false);
             localStorage.removeItem('site-audit-comparison-ids');
             setSelectedForComparison(new Set());
@@ -1276,8 +1276,8 @@ export default function AuditPanel({ onBusyChange, theme }: AuditPanelProps) {
                                     {issue.severity === 'critical' ? '⊗' : '⚠'}
                                   </span>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    <span style={{ color: 'var(--text)', fontWeight: 600, fontSize: 15 }}>{issue.message}</span>
-                                    {issue.impact && <span style={{ color: 'var(--text2)', fontSize: 13, lineHeight: 1.5 }}>{issue.impact}</span>}
+                                    <span style={{ color: 'var(--text)', fontWeight: 600, fontSize: 15, overflowWrap: 'anywhere' }}>{issue.message}</span>
+                                    {issue.impact && <span style={{ color: 'var(--text2)', fontSize: 13, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{issue.impact}</span>}
                                   </div>
                                 </div>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -1340,7 +1340,7 @@ export default function AuditPanel({ onBusyChange, theme }: AuditPanelProps) {
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                                   <span style={{ color: issue.type === 'error' ? 'var(--fail)' : 'var(--warning)', fontSize: 22 }}>{issue.type === 'error' ? '⊗' : '⚠'}</span>
-                                  <span style={{ color: 'var(--text)', fontWeight: 600, fontSize: 15 }}>{issue.message}</span>
+                                  <span style={{ color: 'var(--text)', fontWeight: 600, fontSize: 15, overflowWrap: 'anywhere' }}>{issue.message}</span>
                                   <span style={{ fontSize: 9, padding: '2px 6px', background: issue.severity === 'critical' ? 'rgba(248,113,113,0.1)' : 'var(--surface)', color: issue.severity === 'critical' ? 'var(--fail)' : 'var(--text2)', borderRadius: 4, textTransform: 'uppercase', border: '1px solid var(--border)' }}>{issue.severity}</span>
                                   {issue.confidence && (
                                     <span style={{ fontSize: 9, padding: '2px 6px', background: 'var(--surface)', color: 'var(--text3)', borderRadius: 4, textTransform: 'uppercase', border: '1px solid var(--border)' }}>
@@ -1358,7 +1358,7 @@ export default function AuditPanel({ onBusyChange, theme }: AuditPanelProps) {
                                   {issue.url && <a href={issue.url} target="_blank" style={{ color: 'var(--accent)', fontSize: 11, fontWeight: 700, textDecoration: 'none', border: '1px solid var(--accent)', padding: '4px 10px', borderRadius: 6 }}>OPEN LINK</a>}
                                 </div>
                               </div>
-                              {issue.impact && <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}><span style={{ color: 'var(--text3)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', marginTop: 3 }}>Impact</span><span style={{ color: 'var(--text2)', fontSize: 14 }}>{issue.impact}</span></div>}
+                              {issue.impact && <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}><span style={{ color: 'var(--text3)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', marginTop: 3 }}>Impact</span><span style={{ color: 'var(--text2)', fontSize: 14, overflowWrap: 'anywhere' }}>{issue.impact}</span></div>}
                               {issue.recommendation && <div style={{ background: 'var(--warning-bg)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--warning)44', display: 'flex', gap: 10, alignItems: 'flex-start' }}><span style={{ color: 'var(--warning)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', marginTop: 3 }}>Fix</span><span style={{ color: 'var(--text)', fontSize: 14, lineHeight: 1.5 }}>{issue.recommendation}</span></div>}
                             </div>
                           ))}
